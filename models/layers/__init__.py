@@ -5,3 +5,4 @@ from models.layers.position_embed import AddAbsPosEmbed
 from models.layers.attention import SelfAttentionBlock
 from models.layers.lca import LCAEncoder
 from models.layers.encoder import Encoder
+from models.layers.leff import LeFFEncoder
