@@ -20,6 +20,7 @@ class LCAEncoder(nn.Module):
             x = EncoderBlock(
                 num_heads=self.num_heads,
                 head_ch=self.head_ch,
+                out_ch=self.head_ch,
                 mlp_ch=self.mlp_ch,
                 is_lca=True
             )(x)

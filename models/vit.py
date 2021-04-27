@@ -33,6 +33,7 @@ class ViT(nn.Module):
         x = Encoder(num_layers=self.num_layers,
                     num_heads=self.num_heads,
                     head_ch=self.head_ch,
+                    out_ch=self.head_ch,
                     mlp_ch=self.embed_dim,
                     dropout_rate=self.dropout_rate,
                     attn_dropout_rate=self.attn_dropout_rate,

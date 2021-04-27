@@ -7,6 +7,7 @@ from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed
 class EncoderBlock(nn.Module):
     num_heads: int
     head_ch: int
+    out_ch: int
     mlp_ch: int
 
     is_lca: bool = False
@@ -19,6 +20,7 @@ class EncoderBlock(nn.Module):
         x = nn.LayerNorm(dtype=self.dtype)(inputs)
         x = SelfAttentionBlock(num_heads=self.num_heads,
                                head_ch=self.head_ch,
+                               out_ch=self.out_ch,
                                dropout_rate=self.attn_dropout_rate,
                                dtype=self.dtype)(x, train=train)
 
@@ -44,6 +46,7 @@ class Encoder(nn.Module):
     num_layers: int
     num_heads: int
     head_ch: int
+    out_ch: int
     mlp_ch: int
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
@@ -57,6 +60,7 @@ class Encoder(nn.Module):
         for _ in range(self.num_layers):
             x = EncoderBlock(num_heads=self.num_heads,
                              head_ch=self.head_ch,
+                             out_ch=self.out_ch,
                              mlp_ch=self.mlp_ch,
                              dropout_rate=self.dropout_rate,
                              attn_dropout_rate=self.attn_dropout_rate,
