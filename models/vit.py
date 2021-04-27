@@ -7,7 +7,7 @@ from jax.lax import Precision
 from flax.linen import initializers
 from flax import linen as nn
 
-from layers import FFBlock, PatchEmbedBlock, SelfAttentionBlock, AddAbsPosEmbed
+from models.layers import FFBlock, PatchEmbedBlock, SelfAttentionBlock, AddAbsPosEmbed
 
 
 class EncoderBlock(nn.Module):

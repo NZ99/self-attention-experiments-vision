@@ -8,7 +8,7 @@ from flax import linen as nn
 
 from einops import rearrange
 
-from botnet_config import BoTNetConfig
+from models.botnet_config import BoTNetConfig
 
 ModuleDef = Any
 
