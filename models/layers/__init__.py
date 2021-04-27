@@ -1,5 +1,5 @@
 from mlp import FFBlock
 from squeeze_excite import SqueezeExciteBlock
-from patch_embed import PatchEmbedBlock
+from patch_embed import PatchEmbedBlock, CeiTImage2TokenPatchEmbedBlock
 from position_embed import AddAbsPosEmbed
 from attention import SelfAttentionBlock
