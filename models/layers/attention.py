@@ -1,30 +1,28 @@
-from typing import Any, Callable, Tuple, Optional
-
 from functools import partial
-
-from flax.linen import initializers
-from flax import linen as nn
-
-from jax import random
-from jax.lax import Precision
-from jax import numpy as jnp
+from typing import Any, Callable
 
 from einops import rearrange
+from flax import linen as nn
+from flax.linen import initializers
+from jax import numpy as jnp
+from jax import random
+from jax.lax import Precision
 
 PRNGKey = Any
 
 
 class SelfAttentionBlock(nn.Module):
-
     num_heads: int
     head_ch: int
     out_ch: int
+
+    is_lca: bool = False
     talking_heads: bool = False
     dropout_rate: float = 0.
     use_bias: bool = False
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform
+    kernel_init: Callable = initializers.kaiming_uniform()
     bias_init: Callable = initializers.zeros
 
     @nn.compact
@@ -36,11 +34,20 @@ class SelfAttentionBlock(nn.Module):
                         dtype=self.dtype,
                         precision=self.precision,
                         kernel_init=self.kernel_init,
-                        bias_init=self.bias_init)
+                        bias_init=self.bias_init
+                        )
 
-        queries, keys, values = (dense(name='queries')(inputs),
+        if self.is_lca:
+            # only consider last layer for queries
+            q_inputs = jnp.expand_dims(inputs[:, -1, :], axis=1)
+
+        else:
+            q_inputs = inputs
+
+        queries, keys, values = (dense(name='queries')(q_inputs),
                                  dense(name='keys')(inputs),
                                  dense(name='values')(inputs))
+
         queries = queries / jnp.sqrt(self.head_ch)
 
         attn_weights = jnp.einsum('... q h d, ... k h d -> ... h q k',

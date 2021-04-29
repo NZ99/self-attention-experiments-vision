@@ -17,7 +17,7 @@ class SqueezeExciteBlock(nn.Module):
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = nn.initializers.kaiming_uniform
+    kernel_init: Callable = nn.initializers.kaiming_uniform()
     bias_init: Callable = nn.initializers.zeros
 
     @nn.compact

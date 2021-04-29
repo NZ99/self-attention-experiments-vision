@@ -1,2 +1,2 @@
-from botnet import BoTNet
-from botnet_config import BoTNetConfig
+from models.botnet import BoTNet
+from models.botnet_config import BoTNetConfig
