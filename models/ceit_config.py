@@ -31,4 +31,3 @@ class CeiTConfig:
 
     # LCA
     lca_num_layers: int = 1
-

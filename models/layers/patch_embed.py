@@ -8,6 +8,7 @@ from jax import numpy as jnp
 
 from einops import rearrange
 
+
 class CeiTImage2TokenPatchEmbedBlock(nn.Module):
     patch_shape: Tuple[int, int]
     num_ch: int
@@ -24,13 +25,16 @@ class CeiTImage2TokenPatchEmbedBlock(nn.Module):
     bias_init: Callable = initializers.zeros
 
     @nn.compact
-    def __call__(self, inputs,):
+    def __call__(
+        self,
+        inputs,
+    ):
         # inputs.shape = [b, c, h, w]
         h = nn.Conv(
             features=self.num_ch,
             kernel_size=(self.conv_kernel_size, self.conv_kernel_size),
             strides=(self.conv_stride, self.conv_stride),
-            padding=[(self.patch_shape[0],)*2, (self.patch_shape[1],)*2],
+            padding=[(self.patch_shape[0],) * 2, (self.patch_shape[1],) * 2],
         )(inputs)
 
         h = nn.BatchNorm(use_running_average=True)(h)
@@ -47,16 +51,15 @@ class CeiTImage2TokenPatchEmbedBlock(nn.Module):
             pw=self.patch_shape[1],
         )
 
-        out = nn.Dense(
-            features=self.embed_dim,
-            use_bias=self.use_bias,
-            dtype=self.dtype,
-            precision=self.precision,
-            kernel_init=self.kernel_init,
-            bias_init=self.bias_init
-        )(h_hat)
+        out = nn.Dense(features=self.embed_dim,
+                       use_bias=self.use_bias,
+                       dtype=self.dtype,
+                       precision=self.precision,
+                       kernel_init=self.kernel_init,
+                       bias_init=self.bias_init)(h_hat)
 
         return out
+
 
 class PatchEmbedBlock(nn.Module):
 

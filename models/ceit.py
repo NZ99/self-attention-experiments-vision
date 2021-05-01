@@ -15,7 +15,8 @@ class CeiT(nn.Module):
     config: CeiTConfig
 
     num_classes: int
-    patch_shape: Tuple[int, int] = field(default_factory=lambda: [4, 4], pytree_node=False)
+    patch_shape: Tuple[int, int] = field(default_factory=lambda: [4, 4],
+                                         pytree_node=False)
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -28,8 +29,7 @@ class CeiT(nn.Module):
             pool_window_size=self.config.pool_window_size,
             pool_stride=self.config.pool_stride,
             embed_dim=self.config.embed_dim,
-            dtype=self.dtype
-        )(inputs)
+            dtype=self.dtype)(inputs)
 
         b, *(_) = x.shape
         cls_shape = (1, 1, self.config.embed_dim)
@@ -46,15 +46,13 @@ class CeiT(nn.Module):
             head_ch=self.config.embed_dim,
             dropout_rate=self.config.dropout_rate,
             attn_dropout_rate=self.config.attn_dropout_rate,
-            dtype=self.dtype
-        )(x, train=train)
+            dtype=self.dtype)(x, train=train)
 
         cls = LCAEncoder(
             num_heads=self.config.num_heads,
             head_ch=self.config.embed_dim,
             mlp_ch=self.config.embed_dim,
-            num_layers=self.config.lca_num_layers
-        )(layer_cls_tokens)
+            num_layers=self.config.lca_num_layers)(layer_cls_tokens)
 
         cls = cls[:, 0]
         cls_out = nn.Dense(
@@ -80,4 +78,3 @@ if __name__ == '__main__':
 
     out = model.apply(variables, batch)
     print(f'Output shape: {out.shape}')
-

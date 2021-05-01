@@ -22,7 +22,10 @@ class DWConvBlock(nn.Module):
     bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
-    def __call__(self, x_s,):
+    def __call__(
+        self,
+        x_s,
+    ):
         # depthwise conv
         h = nn.Conv(
             features=self.num_features,
@@ -72,13 +75,16 @@ class LeFFBlock(nn.Module):
         x_l1 = self.activation_fn(h)
 
         # spatial restore
-        x_s = rearrange(x_l1, 'b (h w) c -> b h w c', h=int(math.sqrt(n)), w=int(math.sqrt(n)))
+        x_s = rearrange(x_l1,
+                        'b (h w) c -> b h w c',
+                        h=int(math.sqrt(n)),
+                        w=int(math.sqrt(n)))
         # x_s.shape = [b, sqrt(n), sqrt(n), c]
 
         # depthwise conv
         h = nn.Conv(
             features=hidden_ch,
-            kernel_size=(self.dw_conv_kernel_size,)*2,
+            kernel_size=(self.dw_conv_kernel_size,) * 2,
             dtype=self.dtype,
             precision=self.precision,
             feature_group_count=hidden_ch,
@@ -91,7 +97,10 @@ class LeFFBlock(nn.Module):
         x_d = self.activation_fn(h)
 
         # flatten
-        x_f = rearrange(x_d, 'b h w c -> b (h w) c', h=int(math.sqrt(n)), w=int(math.sqrt(n)))
+        x_f = rearrange(x_d,
+                        'b h w c -> b (h w) c',
+                        h=int(math.sqrt(n)),
+                        w=int(math.sqrt(n)))
         # x_f.shape = [b, n, c*e]
 
         h = nn.Dense(
@@ -121,13 +130,11 @@ class LeFFEncoderBlock(nn.Module):
         # x = LN(x + MSA(x))
         # y = LN(x + LeFF(x))
 
-        h = SelfAttentionBlock(
-            num_heads=self.num_heads,
-            head_ch=self.head_ch,
-            out_ch=self.head_ch,
-            dropout_rate=self.attn_dropout_rate,
-            dtype=self.dtype
-        )(inputs, train=train)
+        h = SelfAttentionBlock(num_heads=self.num_heads,
+                               head_ch=self.head_ch,
+                               out_ch=self.head_ch,
+                               dropout_rate=self.attn_dropout_rate,
+                               dtype=self.dtype)(inputs, train=train)
 
         res = inputs + h
 
@@ -143,7 +150,8 @@ class LeFFEncoderBlock(nn.Module):
         leff = nn.LayerNorm(dtype=self.dtype)(res)
 
         cls = a[:, 0]
-        return cls, jnp.concatenate([jnp.expand_dims(cls, axis=1), leff], axis=1)
+        return cls, jnp.concatenate([jnp.expand_dims(cls, axis=1), leff],
+                                    axis=1)
 
 
 class LeFFEncoder(nn.Module):
@@ -171,8 +179,7 @@ class LeFFEncoder(nn.Module):
                 attn_dropout_rate=self.attn_dropout_rate,
                 dw_conv_kernel_size=self.dw_conv_kernel_size,
                 expand_ratio=self.expand_ratio,
-                dtype=self.dtype
-            )(x)
+                dtype=self.dtype)(x)
             cls_tokens.append(cls)
 
         output = nn.LayerNorm(dtype=self.dtype)(x)

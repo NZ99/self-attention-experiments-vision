@@ -34,8 +34,7 @@ class SelfAttentionBlock(nn.Module):
                         dtype=self.dtype,
                         precision=self.precision,
                         kernel_init=self.kernel_init,
-                        bias_init=self.bias_init
-                        )
+                        bias_init=self.bias_init)
 
         if self.is_lca:
             # only consider last layer for queries

@@ -13,7 +13,8 @@ ModuleDef = Any
 @struct.dataclass
 class BoTNetConfig:
     """BoTNet configuration"""
-    stage_sizes: Sequence[int] = struct.field(default_factory=lambda: [3, 4, 6, 6], pytree_node=False)
+    stage_sizes: Sequence[int] = struct.field(
+        default_factory=lambda: [3, 4, 6, 6], pytree_node=False)
     num_classes: int = 1000
     stride_one: bool = True
     se_ratio: float = 0.0625

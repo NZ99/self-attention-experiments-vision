@@ -17,13 +17,11 @@ class LCAEncoder(nn.Module):
         for _ in range(self.num_layers):
             # an LCA block follows the Transformer MSA with FFN Block,
             # but only computes representation for the last token
-            x = EncoderBlock(
-                num_heads=self.num_heads,
-                head_ch=self.head_ch,
-                out_ch=self.head_ch,
-                mlp_ch=self.mlp_ch,
-                is_lca=True
-            )(x)
+            x = EncoderBlock(num_heads=self.num_heads,
+                             head_ch=self.head_ch,
+                             out_ch=self.head_ch,
+                             mlp_ch=self.mlp_ch,
+                             is_lca=True)(x)
 
         output = nn.LayerNorm(dtype=self.dtype)(x)
         return output
