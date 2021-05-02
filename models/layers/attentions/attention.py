@@ -15,6 +15,7 @@ class SelfAttentionBlock(nn.Module):
     num_heads: int
     head_ch: int
     out_ch: int
+    is_lca: bool = False
     talking_heads: bool = False
     dropout_rate: float = 0.
     use_bias: bool = False
@@ -34,7 +35,12 @@ class SelfAttentionBlock(nn.Module):
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init)
 
-        queries, keys, values = (dense(name='queries')(inputs),
+        if self.is_lca:
+            q_inputs = jnp.expand_dims(inputs[:, -1, :], axis=1)
+        else:
+            q_inputs = inputs
+
+        queries, keys, values = (dense(name='queries')(q_inputs),
                                  dense(name='keys')(inputs),
                                  dense(name='values')(inputs))
 

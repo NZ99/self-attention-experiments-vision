@@ -1,1 +1,1 @@
-from attention import SelfAttentionBlock
+from .attention import SelfAttentionBlock
