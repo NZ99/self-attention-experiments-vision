@@ -22,7 +22,11 @@ import utils
 
 
 class Experiment(experiment.AbstractExperiment):
-    CHECKPOINT_ATTRS = {'_params': 'params', '_opt_state': 'opt_state'}
+    CHECKPOINT_ATTRS = {
+        '_params': 'params',
+        '_state': 'state',
+        '_opt_state': 'opt_state'
+    }
     NON_BROADCAST_CHECKPOINT_ATTRS = {'_step': 'step'}
 
     def __init__(self, mode, config, init_rng):
@@ -33,6 +37,7 @@ class Experiment(experiment.AbstractExperiment):
 
         # Checkpointed experiment state.
         self._params = None
+        self._state = None
         self._opt_state = None
 
         # Optimizer.
@@ -68,7 +73,8 @@ class Experiment(experiment.AbstractExperiment):
             init_net = jax.pmap(lambda *a: self.net.init(*a, is_training=True),
                                 axis_name='i')
             init_rng = jl_utils.bcast_local_devices(self.init_rng)
-            self._params = init_net(init_rng, inputs)
+            variables = init_net(init_rng, inputs)
+            self._params, self._state = variables.pop('params')
             num_params = count_parameters(self._params)
             logging.info(f'Net params: {num_params / jax.local_device_count()}')
             self._make_opt()
@@ -99,15 +105,21 @@ class Experiment(experiment.AbstractExperiment):
     def _one_hot(self, labels):
         return jax.nn.one_hot(labels, self.config.num_classes)
 
-    def _loss_fn(self, params, batch):
+    def _loss_fn(self, params, state, batch):
         if self.config.get('transpose', False):
             images = rearrange(batch['images'], 'H W C N -> N H W C')
         else:
             images = batch['images']
         if self.config.dtype is jnp.bfloat16:
             images = utils.to_bf16(images)
-
-        logits = self.net.apply(params, images, is_training=True)
+        variables = {
+            'params': params,
+            'batch_stats': state,
+        }
+        logits, state = self.net.apply(variables,
+                                       images,
+                                       is_training=True,
+                                       mutable='batch_stats')
         y = self._one_hot(batch['labels'])
         if 'mix_labels' in batch:  # Handle cutmix/mixup label mixing
             logging.info('Using mixup or cutmix!')
@@ -126,15 +138,16 @@ class Experiment(experiment.AbstractExperiment):
         metrics = jax.tree_map(jnp.mean, metrics)
         metrics['train_loss'] = loss
         scaled_loss = loss / jax.device_count()
-        return scaled_loss, metrics
+        return scaled_loss, (metrics, state)
 
-    def _train_fn(self, params, opt_state, batch, global_step):
+    def _train_fn(self, params, state, opt_state, batch, global_step):
         grad_fn = jax.grad(self._loss_fn, argnums=0, has_aux=True)
         if self.config.dtype is jnp.bfloat16:
-            params = jax.tree_map(utils.to_bf16, params)
-        grads, metrics = grad_fn(params, batch)
+            params, state = jax.tree_map(utils.to_bf16, (params, state))
+        grads, (metrics, state) = grad_fn(params, state, batch)
         if self.config.dtype is jnp.bfloat16:
-            metrics, grads = jax.tree_map(utils.from_bf16, (metrics, grads))
+            state, metrics, grads = jax.tree_map(utils.from_bf16,
+                                                 (state, metrics, grads))
 
         grads = jax.lax.psum(grads, 'i')
         metrics = jax.lax.pmean(metrics, 'i')
@@ -142,17 +155,24 @@ class Experiment(experiment.AbstractExperiment):
         metrics['learning_rate'] = lr
         updates, opt_state = self._opt.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
-        return {'params': params, 'opt_state': opt_state, 'metrics': metrics}
+        return {
+            'params': params,
+            'state': state,
+            'opt_state': opt_state,
+            'metrics': metrics
+        }
 
     def step(self, global_step, *unused_args, **unused_kwargs):
         if self._train_input is None:
             self._initialize_train()
         batch = next(self._train_input)
         out = self.train_fn(params=self._params,
+                            state=self._state,
                             opt_state=self._opt_state,
                             batch=batch,
                             global_step=global_step)
         self._params = out['params']
+        self._state = out['state']
         self._opt_state = out['opt_state']
         self._step = global_step
         return jl_utils.get_first(out['metrics'])
@@ -181,13 +201,13 @@ class Experiment(experiment.AbstractExperiment):
         logging.info(f'[Step {global_step}] Eval scalars: {metrics}')
         return metrics
 
-    def _eval_epoch(self, params):
+    def _eval_epoch(self, params, state):
         num_samples = 0.
         summed_metrics = None
 
         for batch in self._build_eval_input():
             num_samples += np.prod(batch['labels'].shape[:2])
-            metrics = self._eval_fn(params, batch)
+            metrics = self._eval_fn(params, state, batch)
             metrics = jax.tree_map(lambda x: jnp.sum(x[0], axis=0), metrics)
             if summed_metrics is None:
                 summed_metrics = metrics
@@ -197,13 +217,19 @@ class Experiment(experiment.AbstractExperiment):
         mean_metrics = jax.tree_map(lambda x: x / num_samples, summed_metrics)
         return jax.device_get(mean_metrics)
 
-    def _eval_fn(self, params, batch):
+    def _eval_fn(self, params, state, batch):
         if self.config.get('transpose', False):
             images = rearrange(batch['images'], 'H W C N -> N H W C')
         else:
             images = batch['images']
-
-        logits = self.net.apply(params, images, is_training=False)
+        variables = {
+            'params': params,
+            'batch_stats': state,
+        }
+        logits, _ = self.net.apply(variables,
+                                   images,
+                                   is_training=False,
+                                   mutable=False)
         y = self._one_hot(batch['labels'])
         which_loss = getattr(utils, self.config.which_loss)
         loss = which_loss(logits, y, reduction=None)
