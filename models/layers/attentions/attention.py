@@ -15,8 +15,6 @@ class SelfAttentionBlock(nn.Module):
     num_heads: int
     head_ch: int
     out_ch: int
-
-    is_lca: bool = False
     talking_heads: bool = False
     dropout_rate: float = 0.
     use_bias: bool = False
@@ -26,7 +24,7 @@ class SelfAttentionBlock(nn.Module):
     bias_init: Callable = initializers.zeros
 
     @nn.compact
-    def __call__(self, inputs, train: bool):
+    def __call__(self, inputs, is_training: bool):
         dense = partial(nn.DenseGeneral,
                         axis=-1,
                         features=(self.num_heads, self.head_ch),
@@ -36,14 +34,7 @@ class SelfAttentionBlock(nn.Module):
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init)
 
-        if self.is_lca:
-            # only consider last layer for queries
-            q_inputs = jnp.expand_dims(inputs[:, -1, :], axis=1)
-
-        else:
-            q_inputs = inputs
-
-        queries, keys, values = (dense(name='queries')(q_inputs),
+        queries, keys, values = (dense(name='queries')(inputs),
                                  dense(name='keys')(inputs),
                                  dense(name='values')(inputs))
 
@@ -72,7 +63,7 @@ class SelfAttentionBlock(nn.Module):
                                       post_softmax_transform,
                                       precision=self.precision)
 
-        if train and self.dropout_rate > 0.:
+        if is_training and self.dropout_rate > 0.:
             keep_prob = 1.0 - self.dropout_rate
             dropout_rng = self.make_rng('dropout')
             keep = random.bernoulli(dropout_rng, keep_prob, attn_weights.shape)

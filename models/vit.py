@@ -1,28 +1,103 @@
-from typing import Tuple
+from typing import Tuple, Callable
 
 from jax import numpy as jnp
+from jax.lax import Precision
 
 from flax.linen import initializers
 from flax import linen as nn
 
-from models.layers import Encoder, PatchEmbedBlock
+from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbedBlock
+
+
+class EncoderBlock(nn.Module):
+    num_heads: int
+    head_ch: int
+    out_ch: int
+    mlp_ch: int
+    dropout_rate: float = 0.
+    attn_dropout_rate: float = 0.
+    dtype: jnp.dtype = jnp.float32
+    precision: Precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.zeros
+
+    @nn.compact
+    def __call__(self, inputs, is_training: bool):
+        x = nn.LayerNorm(dtype=self.dtype)(inputs)
+        x = SelfAttentionBlock(num_heads=self.num_heads,
+                               head_ch=self.head_ch,
+                               out_ch=self.out_ch,
+                               dropout_rate=self.attn_dropout_rate,
+                               dtype=self.dtype,
+                               precision=self.precision,
+                               kernel_init=self.kernel_init)(
+                                   x, is_training=is_training)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not is_training)
+
+        x += inputs
+
+        y = nn.LayerNorm(dtype=self.dtype)(x)
+        y = FFBlock(hidden_ch=self.mlp_ch,
+                    dropout_rate=self.dropout_rate,
+                    dtype=self.dtype)(y, train=is_training)
+
+        output = x + y
+        return output
+
+
+class Encoder(nn.Module):
+
+    num_layers: int
+    num_heads: int
+    head_ch: int
+    out_ch: int
+    mlp_ch: int
+    dropout_rate: float = 0.
+    attn_dropout_rate: float = 0.
+    dtype: jnp.dtype = jnp.float32
+    precision: Precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.zeros
+
+    @nn.compact
+    def __call__(self, inputs, is_training: bool):
+        x = AddAbsPosEmbed()(inputs)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not is_training)
+
+        for _ in range(self.num_layers):
+            x = EncoderBlock(num_heads=self.num_heads,
+                             head_ch=self.head_ch,
+                             out_ch=self.out_ch,
+                             mlp_ch=self.mlp_ch,
+                             dropout_rate=self.dropout_rate,
+                             attn_dropout_rate=self.attn_dropout_rate,
+                             dtype=self.dtype,
+                             precision=self.precision,
+                             kernel_init=self.kernel_init)(
+                                 x, is_training=is_training)
+
+        output = nn.LayerNorm(dtype=self.dtype)(x)
+        return output
 
 
 class ViT(nn.Module):
 
     num_classes: int
+    num_layers: int
     patch_shape: Tuple[int, int]
     embed_dim: int
-    num_layers: int
     num_heads: int
     head_ch: int
     mlp_ch: int
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
     dtype: jnp.dtype = jnp.float32
+    precision: Precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.zeros
 
     @nn.compact
-    def __call__(self, inputs, train: bool):
+    def __call__(self, inputs, is_training: bool):
         x = PatchEmbedBlock(patch_shape=self.patch_shape,
                             dtype=self.dtype)(inputs)
         b, l, _ = x.shape
@@ -37,12 +112,15 @@ class ViT(nn.Module):
                     mlp_ch=self.embed_dim,
                     dropout_rate=self.dropout_rate,
                     attn_dropout_rate=self.attn_dropout_rate,
-                    dtype=self.dtype)(x)
+                    dtype=self.dtype,
+                    precision=self.precision,
+                    kernel_init=self.kernel_init)(x, is_training=is_training)
         x = x[:, 0]
         output = nn.Dense(
             features=self.num_classes,
             use_bias=True,
             dtype=self.dtype,
             kernel_init=initializers.zeros,
+            bias_init=self.bias_init,
         )(x)
         return output

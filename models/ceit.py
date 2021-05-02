@@ -1,44 +1,152 @@
-from typing import Tuple
+from typing import Tuple, Callable, Optional
+
+from functools import partial
 
 from flax import linen as nn
 from flax.linen import initializers
 from flax.struct import field
+
 from jax import numpy as jnp
+from jax.lax import Precision
 from jax import random
 
-from models.layers import CeiTImage2TokenPatchEmbedBlock, LCAEncoder, LeFFEncoder
+from models.layers import Image2TokenBlock, SelfAttentionBlock, LeFFBlock, FFBlock
 from models.ceit_config import CeiTConfig
 
 
-class CeiT(nn.Module):
-
-    config: CeiTConfig
-
-    num_classes: int
-    patch_shape: Tuple[int, int] = field(default_factory=lambda: [4, 4],
-                                         pytree_node=False)
+class EncoderBlock(nn.Module):
+    is_lca: bool
+    num_heads: int
+    head_ch: int
+    expand_ratio: int = 4
+    leff_kernel_size: Optional[int] = 3
+    bn_momentum: float = 0.9
+    bn_epsilon: float = 1e-5
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
+    precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
-    def __call__(self, inputs: jnp.ndarray, train: bool = False):
-        x = CeiTImage2TokenPatchEmbedBlock(
-            patch_shape=self.patch_shape,
-            num_ch=self.config.num_ch,
-            conv_kernel_size=self.config.conv_kernel_size,
-            conv_stride=self.config.conv_stride,
-            pool_window_size=self.config.pool_window_size,
-            pool_stride=self.config.pool_stride,
-            embed_dim=self.config.embed_dim,
-            dtype=self.dtype)(inputs)
+    def __call__(self, inputs, is_training: bool):
 
-        b, *(_) = x.shape
+        x = SelfAttentionBlock(num_heads=self.num_heads,
+                               head_ch=self.head_ch,
+                               out_ch=self.out_ch,
+                               dropout_rate=0.,
+                               dtype=self.dtype,
+                               kernel_init=self.kernel_init,
+                               bias_init=self.bias_init)(
+                                   inputs, is_training=is_training)
+        x += inputs
+        x = nn.LayerNorm(dtype=self.dtype)(x)
+
+        if self.is_lca is False:
+            y = LeFFBlock(expand_ratio=self.expand_ratio,
+                          kernel_size=self.leff_kernel_size,
+                          bn_momentum=self.bn_momentum,
+                          bn_epsilon=self.bn_epsilon,
+                          dtype=self.dtype,
+                          precision=self.precision,
+                          kernel_init=self.kernel_init,
+                          bias_init=self.bias_init)(x, is_training=is_training)
+        else:
+            y = FFBlock(expand_ratio=self.expand_ratio,
+                        activation_fn=self.activation_fn,
+                        dtype=self.dtype,
+                        precision=self.precision,
+                        kernel_init=self.kernel_init,
+                        bias_init=self.bias_init)(x, is_traning=is_training)
+
+        y = x + y
+        output = nn.LayerNorm(dtype=self.dtype)(y)
+        return output
+
+
+class Encoder(nn.Module):
+    num_layers: int
+    num_heads: int
+    head_ch: int
+    expand_ratio: int = 4
+    leff_kernel_size: int = 3
+    bn_momentum: float = 0.9
+    bn_epsilon: float = 1e-5
+    activation_fn: Callable = nn.activation.gelu
+    dtype: jnp.dtype = jnp.float32
+    precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.normal(stddev=1e-6)
+
+    @nn.compact
+    def __call__(self, inputs, is_training: bool):
+
+        encoder_block = partial(EncoderBlock,
+                                is_lca=False,
+                                num_heads=self.num_heads,
+                                head_ch=self.head_ch,
+                                expand_ratio=self.expand_ratio,
+                                leff_kernel_size=self.leff_kernel_size,
+                                bn_momentum=self.bn_momentum,
+                                bn_epsilon=self.bn_epsilon,
+                                dtype=self.dtype,
+                                precision=self.precision,
+                                kernel_init=self.kernel_init,
+                                bias_init=self.bias_init)
+
+        x = encoder_block()(inputs, is_training=is_training)
+        cls_tokens = x[:, 0]
+
+        for _ in range(self.num_layers - 1):
+            x = encoder_block()(x, is_training=is_training)
+            cls_tokens = jnp.concatenate(cls_tokens, x[:, 0])
+
+        return cls_tokens
+
+
+class CeiT(nn.Module):
+    num_classes: int
+    num_layers: int
+    patch_shape: Tuple[int, int]
+    num_heads: int
+    embed_dim: int
+    expand_ratio: int = 4
+    leff_kernel_size: int = 3
+    bn_momentum: float = 0.9
+    bn_epsilon: float = 1e-5
+    activation_fn: Callable = nn.activation.gelu
+    dtype: jnp.dtype = jnp.float32
+    precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.normal(stddev=1e-6)
+
+    @nn.compact
+    def __call__(self, inputs, is_training: bool):
+        assert self.embed_dim % self.num_heads == 0
+
+        x = Image2TokenBlock(patch_shape=self.patch_shape,
+                             num_ch=self.config.num_ch,
+                             conv_kernel_size=self.config.conv_kernel_size,
+                             conv_stride=self.config.conv_stride,
+                             pool_window_size=self.config.pool_window_size,
+                             pool_stride=self.config.pool_stride,
+                             embed_dim=self.config.embed_dim,
+                             bn_momentum=self.bn_momentum,
+                             bn_epsilon=self.bn_epsilon,
+                             dtype=self.dtype,
+                             precision=self.precision,
+                             kernel_init=self.kernel_init,
+                             bias_init=self.bias_init)(inputs,
+                                                       is_training=is_training)
+
+        b = x.shape[0]
         cls_shape = (1, 1, self.config.embed_dim)
         cls_token = self.param('cls', initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
 
         x = jnp.concatenate([cls_token, x], axis=1)
 
-        x, layer_cls_tokens = LeFFEncoder(
+        cls_tokens = Encoder(
             num_layers=self.config.num_layers,
             expand_ratio=self.config.expand_ratio,
             dw_conv_kernel_size=self.config.dw_conv_kernel_size,
@@ -46,35 +154,25 @@ class CeiT(nn.Module):
             head_ch=self.config.embed_dim,
             dropout_rate=self.config.dropout_rate,
             attn_dropout_rate=self.config.attn_dropout_rate,
-            dtype=self.dtype)(x, train=train)
+            dtype=self.dtype)(x, is_training=is_training)
 
-        cls = LCAEncoder(
-            num_heads=self.config.num_heads,
-            head_ch=self.config.embed_dim,
-            mlp_ch=self.config.embed_dim,
-            num_layers=self.config.lca_num_layers)(layer_cls_tokens)
-
-        cls = cls[:, 0]
-        cls_out = nn.Dense(
-            features=self.num_classes,
-            use_bias=True,
-            dtype=self.dtype,
-            kernel_init=initializers.zeros,
-        )(cls)
-        return cls_out
-
-
-if __name__ == '__main__':
-    init_input = jnp.ones(shape=(1, 224, 224, 3))
-    batch = jnp.ones(shape=(10, 224, 224, 3))
-
-    model = CeiT(num_classes=1000, config=CeiTConfig())
-
-    variables = model.init(random.PRNGKey(seed=0), init_input)
-    state, params = variables.pop('params')
-
-    from clu.parameter_overview import count_parameters
-    print(f'Num parameters: {count_parameters(params)}')
-
-    out = model.apply(variables, batch)
-    print(f'Output shape: {out.shape}')
+        cls_tokens = EncoderBlock(is_lca=True,
+                                  num_heads=self.num_heads,
+                                  head_ch=self.head_ch,
+                                  expand_ratio=self.expand_ratio,
+                                  leff_kernel_size=self.leff_kernel_size,
+                                  bn_momentum=self.bn_momentum,
+                                  bn_epsilon=self.bn_epsilon,
+                                  dtype=self.dtype,
+                                  precision=self.precision,
+                                  kernel_init=self.kernel_init,
+                                  bias_init=self.bias_init)(
+                                      cls_tokens, is_training=is_training)
+        cls = cls_tokens[:, -1]
+        output = nn.Dense(features=self.num_classes,
+                          use_bias=True,
+                          dtype=self.dtype,
+                          precision=self.precision,
+                          kernel_init=self.kernel_init,
+                          bias_init=self.bias_init)(cls)
+        return output

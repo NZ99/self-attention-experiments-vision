@@ -1,4 +1,7 @@
+import sys
+
 from absl import logging
+from absl import flags
 
 import jax
 from jax import numpy as jnp
@@ -10,6 +13,7 @@ import optax
 import numpy as np
 
 from jaxline import experiment
+from jaxline import platform
 from jaxline import utils as jl_utils
 
 from clu.parameter_overview import count_parameters
@@ -19,6 +23,8 @@ from einops import rearrange
 import models
 import input_pipeline
 import utils
+
+FLAGS = flags.FLAGS
 
 
 class Experiment(experiment.AbstractExperiment):
@@ -225,3 +231,8 @@ class Experiment(experiment.AbstractExperiment):
             name=self.config.which_dataset,
             eval_preproc=eval_preproc,
             fake_data=False)
+
+
+if __name__ == '__main__':
+    flags.mark_flag_as_required('config')
+    platform.main(Experiment, sys.argv[1:])

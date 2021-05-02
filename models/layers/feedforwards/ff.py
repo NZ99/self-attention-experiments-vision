@@ -1,4 +1,4 @@
-from typing import Callable, Any
+from typing import Callable
 
 from functools import partial
 
@@ -21,7 +21,7 @@ class FFBlock(nn.Module):
     bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
-    def __call__(self, inputs, train: bool):
+    def __call__(self, inputs, is_training: bool):
         in_ch = inputs.shape[-1]
         if self.expand_ratio is None:
             if self.hidden_ch is None:
