@@ -146,19 +146,20 @@ class CeiT(nn.Module):
 
         x = jnp.concatenate([cls_token, x], axis=1)
 
+        head_ch = int(self.embed_dim / self.num_heads)
         cls_tokens = Encoder(
             num_layers=self.config.num_layers,
             expand_ratio=self.config.expand_ratio,
             dw_conv_kernel_size=self.config.dw_conv_kernel_size,
             num_heads=self.config.num_heads,
-            head_ch=self.config.embed_dim,
+            head_ch=head_ch,
             dropout_rate=self.config.dropout_rate,
             attn_dropout_rate=self.config.attn_dropout_rate,
             dtype=self.dtype)(x, is_training=is_training)
 
         cls_tokens = EncoderBlock(is_lca=True,
                                   num_heads=self.num_heads,
-                                  head_ch=self.head_ch,
+                                  head_ch=head_ch,
                                   expand_ratio=self.expand_ratio,
                                   leff_kernel_size=self.leff_kernel_size,
                                   bn_momentum=self.bn_momentum,
