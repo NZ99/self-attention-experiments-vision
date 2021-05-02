@@ -15,7 +15,6 @@ class EncoderBlock(nn.Module):
     is_lca: bool
     num_heads: int
     head_ch: int
-    embed_dim: int
     expand_ratio: int = 4
     leff_kernel_size: Optional[int] = 3
     bn_momentum: float = 0.9
@@ -32,9 +31,10 @@ class EncoderBlock(nn.Module):
         x = SelfAttentionBlock(num_heads=self.num_heads,
                                is_lca=self.is_lca,
                                head_ch=self.head_ch,
-                               out_ch=self.embed_dim,
+                               out_ch=self.head_ch * self.num_heads,
                                dropout_rate=0.,
                                dtype=self.dtype,
+                               precision=self.precision,
                                kernel_init=self.kernel_init,
                                bias_init=self.bias_init)(
                                    inputs, is_training=is_training)
@@ -58,8 +58,6 @@ class EncoderBlock(nn.Module):
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init)(x, is_training=is_training)
 
-
-
         y = x + y
         output = nn.LayerNorm(dtype=self.dtype)(y)
         return output
@@ -69,7 +67,6 @@ class Encoder(nn.Module):
     num_layers: int
     num_heads: int
     head_ch: int
-    embed_dim: int
     expand_ratio: int = 4
     leff_kernel_size: int = 3
     bn_momentum: float = 0.9
@@ -87,7 +84,6 @@ class Encoder(nn.Module):
                                 is_lca=False,
                                 num_heads=self.num_heads,
                                 head_ch=self.head_ch,
-                                embed_dim=self.embed_dim,
                                 expand_ratio=self.expand_ratio,
                                 leff_kernel_size=self.leff_kernel_size,
                                 bn_momentum=self.bn_momentum,
@@ -117,7 +113,6 @@ class CeiT(nn.Module):
     pool_stride: int = 2
     embed_dim: int = 192
     expand_ratio: int = 4
-    lca_num_heads: int = 4
     leff_kernel_size: int = 3
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
@@ -156,19 +151,20 @@ class CeiT(nn.Module):
         x = jnp.concatenate([cls_token, x], axis=1)
 
         head_ch = int(self.embed_dim / self.num_heads)
-        cls_tokens = Encoder(
-            num_layers=self.num_layers,
-            expand_ratio=self.expand_ratio,
-            leff_kernel_size=self.leff_kernel_size,
-            num_heads=self.num_heads,
-            head_ch=head_ch,
-            embed_dim=self.embed_dim,
-            dtype=self.dtype)(x, is_training=is_training)
+        cls_tokens = Encoder(num_layers=self.num_layers,
+                             expand_ratio=self.expand_ratio,
+                             leff_kernel_size=self.leff_kernel_size,
+                             num_heads=self.num_heads,
+                             head_ch=head_ch,
+                             dtype=self.dtype,
+                             precision=self.precision,
+                             kernel_init=self.kernel_init,
+                             bias_init=self.bias_init)(x,
+                                                       is_training=is_training)
 
         cls_tokens = EncoderBlock(is_lca=True,
                                   num_heads=self.num_heads,
-                                  embed_dim=self.embed_dim,
-                                  head_ch=self.embed_dim,
+                                  head_ch=self.head_ch,
                                   expand_ratio=self.expand_ratio,
                                   bn_momentum=self.bn_momentum,
                                   bn_epsilon=self.bn_epsilon,
