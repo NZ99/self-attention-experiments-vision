@@ -27,8 +27,8 @@ class BottleneckResNetBlock(nn.Module):
     filters: int
     conv: ModuleDef
     norm: ModuleDef
-    se_ratio: float = 0.0625
     strides: Tuple[int, int]
+    se_ratio: float = 0.0625
     projection_factor: int = 4
     activation_fn: Callable = nn.activation.swish
     dtype: jnp.dtype = jnp.float32
@@ -213,8 +213,8 @@ class BoTBlock(nn.Module):
     filters: int
     conv: ModuleDef
     norm: ModuleDef
-    projection_factor: int = 4
     strides: Tuple[int, int]
+    projection_factor: int = 4
     activation_fn: ModuleDef = nn.swish
 
     @nn.compact
