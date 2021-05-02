@@ -119,7 +119,7 @@ class CeiT(nn.Module):
     bn_epsilon: float = 1e-5
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision = Precision.DEFAULT
+    precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
     bias_init: Callable = initializers.normal(stddev=1e-6)
     dropout_rate: float = 0
@@ -165,7 +165,7 @@ class CeiT(nn.Module):
 
         cls_tokens = EncoderBlock(is_lca=True,
                                   num_heads=self.num_heads,
-                                  head_ch=self.head_ch,
+                                  head_ch=head_ch,
                                   expand_ratio=self.expand_ratio,
                                   bn_momentum=self.bn_momentum,
                                   bn_epsilon=self.bn_epsilon,
