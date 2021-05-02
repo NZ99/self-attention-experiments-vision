@@ -27,8 +27,9 @@ class FFBlock(nn.Module):
             if self.hidden_ch is None:
                 raise ValueError(
                     'Must provide one of expand_ratio or hidden_ch')
+            hidden_ch = self.hidden_ch
         else:
-            self.hidden_ch = max(1, self.expand_ratio * in_ch)
+            hidden_ch = max(1, self.expand_ratio * in_ch)
 
         dense = partial(nn.Dense,
                         use_bias=True,
@@ -37,9 +38,9 @@ class FFBlock(nn.Module):
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init)
 
-        x = dense(features=self.hidden_ch)(inputs)
+        x = dense(features=hidden_ch)(inputs)
         x = self.activation_fn(x)
-        x = nn.Dropout(rate=self.dropout_rate, deterministic=not train)(x)
+        x = nn.Dropout(rate=self.dropout_rate, deterministic=not is_training)(x)
         x = dense(features=in_ch)(x)
-        output = nn.Dropout(rate=self.dropout_rate, deterministic=not train)(x)
+        output = nn.Dropout(rate=self.dropout_rate, deterministic=not is_training)(x)
         return output

@@ -32,8 +32,9 @@ class LeFFBlock(nn.Module):
             if self.hidden_ch is None:
                 raise ValueError(
                     'Must provide one of expand_ratio or hidden_ch')
+            hidden_ch = self.hidden_ch
         else:
-            self.hidden_ch = max(1, self.expand_ratio * in_ch)
+            hidden_ch = max(1, self.expand_ratio * in_ch)
 
         dense = partial(nn.Dense,
                         use_bias=True,
@@ -47,7 +48,7 @@ class LeFFBlock(nn.Module):
                              epsilon=self.bn_epsilon,
                              dtype=self.dtype)
 
-        x = dense(features=self.hidden_ch)(tokens)
+        x = dense(features=hidden_ch)(tokens)
         x = batch_norm()(x)
         x = self.activation_fn(x)
 
@@ -55,12 +56,12 @@ class LeFFBlock(nn.Module):
         x = rearrange(x, 'b (h w) c -> b h w c', h=spatial_ch, w=spatial_ch)
 
         x = nn.Conv(
-            features=self.hidden_ch,
+            features=hidden_ch,
             kernel_size=(self.kernel_size, self.kernel_size),
             padding='SAME',
             dtype=self.dtype,
             precision=self.precision,
-            feature_group_count=self.hidden_ch,
+            feature_group_count=hidden_ch,
             kernel_init=self.kernel_init,
             bias_init=self.bias_init,
         )(x)
@@ -73,5 +74,5 @@ class LeFFBlock(nn.Module):
         x = batch_norm()(x)
         x = self.activation_fn(x)
 
-        output = jnp.concatenate([cls, x], axis=1)  # check if this is correct
+        output = jnp.concatenate([jnp.expand_dims(cls, axis=1), x], axis=1)  # check if this is correct
         return output
