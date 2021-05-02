@@ -21,7 +21,7 @@ class EncoderBlock(nn.Module):
     bn_epsilon: float = 1e-5
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision = Precision.DEFAULT
+    precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
     bias_init: Callable = initializers.normal(stddev=1e-6)
 
@@ -73,7 +73,7 @@ class Encoder(nn.Module):
     bn_epsilon: float = 1e-5
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision = Precision.DEFAULT
+    precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
     bias_init: Callable = initializers.normal(stddev=1e-6)
 
@@ -89,6 +89,7 @@ class Encoder(nn.Module):
                                 bn_momentum=self.bn_momentum,
                                 bn_epsilon=self.bn_epsilon,
                                 dtype=self.dtype,
+                                precision=self.precision,
                                 kernel_init=self.kernel_init,
                                 bias_init=self.bias_init)
 
