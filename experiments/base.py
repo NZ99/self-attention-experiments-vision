@@ -38,6 +38,7 @@ class Experiment(experiment.AbstractExperiment):
         self.init_rng = init_rng
 
         # Checkpointed experiment state.
+        self._step = None
         self._params = None
         self._opt_state = None
 

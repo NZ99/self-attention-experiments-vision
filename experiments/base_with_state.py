@@ -36,8 +36,8 @@ class Experiment(experiment.AbstractExperiment):
         self.init_rng = init_rng
 
         # Checkpointed experiment state.
-        self._params = None
         self._state = None
+        self._params = None
         self._opt_state = None
 
         # Optimizer.
