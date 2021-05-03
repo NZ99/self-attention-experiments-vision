@@ -137,9 +137,9 @@ class CvT(nn.Module):
     size: Sequence[int]
     num_heads: Sequence[int]
     embed_dim: Sequence[int]
-    embed_kernel_size: Sequence[int]
-    embed_strides: Sequence[int]
-    sa_kernel_size: Sequence[int] = 3
+    embed_kernel_size: Sequence[int] = [7, 3, 3]
+    embed_strides: Sequence[int] = [4, 2, 2]
+    sa_kernel_size: Sequence[int] = [3, 3, 3]
     use_bias: bool = False
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
