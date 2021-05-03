@@ -110,7 +110,7 @@ class CeiT(nn.Module):
     num_ch: int = 32
     conv_kernel_size: int = 7
     conv_stride: int = 2
-    pool_window_size: int = 3  #
+    pool_window_size: int = 3
     pool_stride: int = 2
     embed_dim: int = 192
     expand_ratio: int = 4
