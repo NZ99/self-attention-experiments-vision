@@ -22,7 +22,7 @@ class CvTTest(parameterized.TestCase):
                     embed_dim=embed_dim)
         rng = dict(params=random.PRNGKey(0))
         x = jnp.ones((2, img_resolution, img_resolution, 3))
-        logits, _ = model.init_with_output(rng, x)
+        logits, _ = model.init_with_output(rng, x, is_training=True)
         chex.assert_shape(logits, (2, num_classes))
 
 

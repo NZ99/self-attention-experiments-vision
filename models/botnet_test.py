@@ -19,7 +19,7 @@ class BoTNetTest(parameterized.TestCase):
         model = BoTNet(num_classes=num_classes, stage_sizes=stage_sizes)
         rng = dict(params=random.PRNGKey(0))
         x = jnp.ones((2, img_resolution, img_resolution, 3))
-        logits, _ = model.init_with_output(rng, x)
+        logits, _ = model.init_with_output(rng, x, is_training=True)
         chex.assert_shape(logits, (2, num_classes))
 
 
