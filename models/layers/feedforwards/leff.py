@@ -42,6 +42,7 @@ class LeFFBlock(nn.Module):
                         precision=self.precision,
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init)
+
         batch_norm = partial(nn.BatchNorm,
                              use_running_average=not is_training,
                              momentum=self.bn_momentum,
@@ -74,5 +75,6 @@ class LeFFBlock(nn.Module):
         x = batch_norm()(x)
         x = self.activation_fn(x)
 
-        output = jnp.concatenate([jnp.expand_dims(cls, axis=1), x], axis=1)  # check if this is correct
+        output = jnp.concatenate([jnp.expand_dims(cls, axis=1), x],
+                                 axis=1)  # check if this is correct
         return output

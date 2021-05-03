@@ -1,2 +1,2 @@
-from .ff import FFBlock
-from .leff import LeFFBlock
+from models.layers.feedforwards.ff import FFBlock
+from models.layers.feedforwards.leff import LeFFBlock

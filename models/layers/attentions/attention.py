@@ -40,15 +40,15 @@ class SelfAttentionBlock(nn.Module):
         else:
             q_inputs = inputs
 
-        queries, keys, values = (dense(name='queries')(q_inputs),
-                                 dense(name='keys')(inputs),
-                                 dense(name='values')(inputs))
+        query = dense(name='queries')(q_inputs)
+        key = dense(name='keys')(inputs)
+        value = dense(name='values')(inputs)
 
-        queries = queries / jnp.sqrt(self.head_ch)
+        query = query / jnp.sqrt(self.head_ch)
 
         attn_weights = jnp.einsum('... q h d, ... k h d -> ... h q k',
-                                  queries,
-                                  keys,
+                                  query,
+                                  key,
                                   precision=self.precision)
         if self.talking_heads:
             pre_softmax_transform = self.param('pre_softmax', self.kernel_init,
@@ -79,7 +79,7 @@ class SelfAttentionBlock(nn.Module):
 
         attn_scores = jnp.einsum('... h q k, ... k h d -> ... q h d',
                                  attn_weights,
-                                 values,
+                                 value,
                                  precision=self.precision)
 
         if (self.num_heads * self.head_ch) == self.out_ch:

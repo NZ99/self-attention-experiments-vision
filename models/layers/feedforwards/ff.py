@@ -30,7 +30,6 @@ class FFBlock(nn.Module):
             hidden_ch = self.hidden_ch
         else:
             hidden_ch = max(1, self.expand_ratio * in_ch)
-
         dense = partial(nn.Dense,
                         use_bias=True,
                         dtype=self.dtype,
@@ -42,5 +41,6 @@ class FFBlock(nn.Module):
         x = self.activation_fn(x)
         x = nn.Dropout(rate=self.dropout_rate, deterministic=not is_training)(x)
         x = dense(features=in_ch)(x)
-        output = nn.Dropout(rate=self.dropout_rate, deterministic=not is_training)(x)
+        output = nn.Dropout(rate=self.dropout_rate,
+                            deterministic=not is_training)(x)
         return output
