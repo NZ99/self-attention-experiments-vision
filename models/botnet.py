@@ -18,7 +18,6 @@ ModuleDef = Any
 class BottleneckResNetBlock(nn.Module):
     """ResNet bottleneck block.
     Attributes:
-        config: BoTNet configuration
         filters: number of filters to use in the first and second convolutions
         conv: a convolution module
         norm: a normalization module such as nn.BatchNorm
@@ -259,10 +258,8 @@ class BoTNet(nn.Module):
     Attributes:
         config: BoTNet configuration
     """
-
-    stage_sizes: Sequence[int] = struct.field(
-        default_factory=lambda: [3, 4, 6, 6], pytree_node=False)
-    num_classes: int = 1000
+    num_classes: int
+    stage_sizes: Sequence[int]
     stride_one: bool = True
     se_ratio: float = 0.0625
     activation_fn: ModuleDef = nn.swish

@@ -134,7 +134,7 @@ class Stage(nn.Module):
 
 class CvT(nn.Module):
     num_classes: int
-    size: Sequence[int]
+    stage_sizes: Sequence[int]
     num_heads: Sequence[int]
     embed_dim: Sequence[int]
     embed_kernel_size: Sequence[int] = [7, 3, 3]
