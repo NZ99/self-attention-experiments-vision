@@ -12,8 +12,7 @@ from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbe
 class EncoderBlock(nn.Module):
     num_heads: int
     head_ch: int
-    out_ch: int
-    mlp_ch: int
+    expand_ratio: int
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
     dtype: jnp.dtype = jnp.float32
@@ -26,7 +25,7 @@ class EncoderBlock(nn.Module):
         x = nn.LayerNorm(dtype=self.dtype)(inputs)
         x = SelfAttentionBlock(num_heads=self.num_heads,
                                head_ch=self.head_ch,
-                               out_ch=self.out_ch,
+                               out_ch=self.num_heads * self.head_ch,
                                dropout_rate=self.attn_dropout_rate,
                                dtype=self.dtype,
                                precision=self.precision,
@@ -37,9 +36,12 @@ class EncoderBlock(nn.Module):
         x += inputs
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
-        y = FFBlock(hidden_ch=self.mlp_ch,
+        y = FFBlock(expand_ratio=self.expand_ratio,
                     dropout_rate=self.dropout_rate,
-                    dtype=self.dtype)(y, train=is_training)
+                    dtype=self.dtype,
+                    precision=self.precision,
+                    kernel_init=self.kernel_init,
+                    bias_init=self.bias_init)(y, train=is_training)
 
         output = x + y
         return output
@@ -50,8 +52,7 @@ class Encoder(nn.Module):
     num_layers: int
     num_heads: int
     head_ch: int
-    out_ch: int
-    mlp_ch: int
+    expand_ratio: int = 4
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
     dtype: jnp.dtype = jnp.float32
@@ -67,8 +68,7 @@ class Encoder(nn.Module):
         for _ in range(self.num_layers):
             x = EncoderBlock(num_heads=self.num_heads,
                              head_ch=self.head_ch,
-                             out_ch=self.out_ch,
-                             mlp_ch=self.mlp_ch,
+                             expand_ratio=self.expand_ratio,
                              dropout_rate=self.dropout_rate,
                              attn_dropout_rate=self.attn_dropout_rate,
                              dtype=self.dtype,
@@ -84,11 +84,10 @@ class ViT(nn.Module):
 
     num_classes: int
     num_layers: int
-    patch_shape: Tuple[int, int]
-    embed_dim: int
     num_heads: int
-    head_ch: int
-    mlp_ch: int
+    embed_dim: int
+    patch_shape: Tuple[int, int]
+    expand_ratio: int = 4
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
     dtype: jnp.dtype = jnp.float32
@@ -98,6 +97,8 @@ class ViT(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
+        assert self.embed_dim % self.num_heads == 0
+
         x = PatchEmbedBlock(patch_shape=self.patch_shape,
                             dtype=self.dtype)(inputs)
         b, l, _ = x.shape
@@ -105,11 +106,11 @@ class ViT(nn.Module):
         cls_token = self.param('cls', initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
         x = jnp.concatenate([cls_token, x], axis=1)
+        head_ch = int(self.embed_dim / self.num_heads)
         x = Encoder(num_layers=self.num_layers,
                     num_heads=self.num_heads,
-                    head_ch=self.head_ch,
-                    out_ch=self.head_ch,
-                    mlp_ch=self.embed_dim,
+                    head_ch=head_ch,
+                    expand_ratio=self.expand_ratio,
                     dropout_rate=self.dropout_rate,
                     attn_dropout_rate=self.attn_dropout_rate,
                     dtype=self.dtype,
