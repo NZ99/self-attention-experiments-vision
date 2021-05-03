@@ -152,8 +152,8 @@ class CvT(nn.Module):
     @nn.compact
     def __call__(self, inputs, is_training: bool):
         x = inputs
-        for i in range(len(self.size) - 1):
-            x = Stage(size=self.size[i],
+        for i in range(len(self.stage_sizes) - 1):
+            x = Stage(size=self.stage_sizes[i],
                       num_heads=self.num_heads[i],
                       embed_dim=self.embed_dim[i],
                       embed_kernel_size=self.embed_kernel_size[i],
@@ -172,7 +172,7 @@ class CvT(nn.Module):
             spatial_ch = int(jnp.sqrt(l))
             x = rearrange(x, 'b (H W) c -> b H W c', H=spatial_ch)
 
-        x = Stage(size=self.size[i],
+        x = Stage(size=self.stage_sizes[i],
                   num_heads=self.num_heads[i],
                   embed_dim=self.embed_dim[i],
                   embed_kernel_size=self.embed_kernel_size[i],
