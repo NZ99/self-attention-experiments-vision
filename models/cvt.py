@@ -41,6 +41,7 @@ class StageBlock(nn.Module):
     embed_dim: int
     kernel_size: int = 3
     use_bias: bool = False
+    activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     expand_ratio: int = 4
@@ -51,13 +52,7 @@ class StageBlock(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
-        assert inputs.ndim == 4
-        assert self.embed_dim % self.num_heads == 0
-        head_ch = int(self.embed_dim / self.num_heads)
-
         x = CvTSelfAttentionBlock(num_heads=self.num_heads,
-                                  head_ch=head_ch,
-                                  out_ch=self.embed_dim,
                                   kernel_size=self.kernel_size,
                                   use_bias=self.use_bias,
                                   bn_momentum=self.bn_momentum,
@@ -71,6 +66,7 @@ class StageBlock(nn.Module):
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
         y = FFBlock(expand_ratio=self.expand_ratio,
+                    activation_fn=self.activation_fn,
                     dtype=self.dtype,
                     precision=self.precision,
                     kernel_init=self.kernel_init,
@@ -88,6 +84,7 @@ class Stage(nn.Module):
     embed_strides: int
     sa_kernel_size: int = 3
     use_bias: bool = False
+    activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     expand_ratio: int = 4
@@ -121,6 +118,7 @@ class Stage(nn.Module):
                            embed_dim=self.embed_dim,
                            kernel_size=self.sa_kernel_size,
                            use_bias=self.use_bias,
+                           activation_fn=self.activation_fn,
                            bn_momentum=self.bn_momentum,
                            bn_epsilon=self.bn_epsilon,
                            expand_ratio=self.expand_ratio,
@@ -141,9 +139,10 @@ class CvT(nn.Module):
     embed_strides: Sequence[int] = [4, 2, 2]
     sa_kernel_size: Sequence[int] = [3, 3, 3]
     use_bias: bool = False
+    expand_ratio: int = 4
+    activation_fn = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
-    expand_ratio: int = 4
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
@@ -160,6 +159,7 @@ class CvT(nn.Module):
                       embed_strides=self.embed_strides[i],
                       sa_kernel_size=self.sa_kernel_size[i],
                       use_bias=self.use_bias,
+                      activation_fn=self.activation_fn,
                       bn_momentum=self.bn_momentum,
                       bn_epsilon=self.bn_epsilon,
                       expand_ratio=self.expand_ratio,
@@ -179,6 +179,7 @@ class CvT(nn.Module):
                   embed_strides=self.embed_strides[i],
                   sa_kernel_size=self.sa_kernel_size[i],
                   use_bias=self.use_bias,
+                  activation_fn=self.activation_fn,
                   bn_momentum=self.bn_momentum,
                   bn_epsilon=self.bn_epsilon,
                   expand_ratio=self.expand_ratio,
@@ -193,6 +194,6 @@ class CvT(nn.Module):
                           use_bias=True,
                           dtype=self.dtype,
                           precision=self.precision,
-                          kernel_init=self.kernel_init,
-                          bias_init=initializers.zeros)(cls_token)
+                          kernel_init=initializers.zeros,
+                          bias_init=self.bias_init)(cls_token)
         return output

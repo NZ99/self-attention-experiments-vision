@@ -1,0 +1,23 @@
+import jax.numpy as jnp
+
+import flax.linen as nn
+
+
+def full(eps: float, dtype: jnp.dtype = jnp.float32):
+
+    def init(key, shape, dtype=dtype):
+        return jnp.full(shape, eps, dtype=dtype)
+
+    return init
+
+
+class LayerScale(nn.Module):
+    eps: float
+    dtype: jnp.dtype = jnp.float32
+
+    @nn.compact
+    def __call__(self, inputs, *unused_args, **unused_kwargs):
+        in_ch = inputs.shape[-1]
+        scale = self.param('layerscale', full(self.eps, dtype=self.dtype),
+                           (in_ch))
+        return inputs * scale

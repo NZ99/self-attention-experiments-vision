@@ -1,23 +1,19 @@
 from functools import partial
-from typing import Any, Callable
+from typing import Callable, Optional
 
-from einops import rearrange
 from flax import linen as nn
 from flax.linen import initializers
 from jax import numpy as jnp
-from jax import random
 from jax.lax import Precision
 
-PRNGKey = Any
 
-
-class SelfAttentionBlock(nn.Module):
+class AttentionBlock(nn.Module):
     num_heads: int
-    head_ch: int
-    out_ch: int
-    is_lca: bool = False
+    head_ch: Optional[int] = None
+    out_ch: Optional[int] = None
     talking_heads: bool = False
-    dropout_rate: float = 0.
+    attn_drop_rate: float = 0.
+    out_drop_rate: float = 0.
     use_bias: bool = False
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
@@ -25,26 +21,28 @@ class SelfAttentionBlock(nn.Module):
     bias_init: Callable = initializers.zeros
 
     @nn.compact
-    def __call__(self, inputs, is_training: bool):
+    def __call__(self, inputs_q, inputs_kv, is_training: bool):
+        assert inputs_q.ndim == inputs_kv.ndim == 3
+
+        in_ch = inputs_q.shape[-1]
+        assert in_ch % self.num_heads == 0
+        head_ch = self.head_ch or int(in_ch / self.num_heads)
+        out_ch = self.out_ch or in_ch
+
         dense = partial(nn.DenseGeneral,
                         axis=-1,
-                        features=(self.num_heads, self.head_ch),
+                        features=(self.num_heads, head_ch),
                         use_bias=self.use_bias,
                         dtype=self.dtype,
                         precision=self.precision,
                         kernel_init=self.kernel_init,
                         bias_init=self.bias_init)
 
-        if self.is_lca:
-            q_inputs = jnp.expand_dims(inputs[:, -1, :], axis=1)
-        else:
-            q_inputs = inputs
+        query = dense(name='queries')(inputs_q)
+        key = dense(name='keys')(inputs_kv)
+        value = dense(name='values')(inputs_kv)
 
-        query = dense(name='queries')(q_inputs)
-        key = dense(name='keys')(inputs)
-        value = dense(name='values')(inputs)
-
-        query = query / jnp.sqrt(self.head_ch)
+        query = query / jnp.sqrt(head_ch)
 
         attn_weights = jnp.einsum('... q h d, ... k h d -> ... h q k',
                                   query,
@@ -69,27 +67,53 @@ class SelfAttentionBlock(nn.Module):
                                       post_softmax_transform,
                                       precision=self.precision)
 
-        if is_training and self.dropout_rate > 0.:
-            keep_prob = 1.0 - self.dropout_rate
-            dropout_rng = self.make_rng('dropout')
-            keep = random.bernoulli(dropout_rng, keep_prob, attn_weights.shape)
-            multiplier = (keep.astype(attn_weights.dtype) /
-                          jnp.asarray(keep_prob, dtype=self.dtype))
-            attn_weights = attn_weights * multiplier
+        attn_weights = nn.Dropout(rate=self.attn_dropout_rate)(
+            attn_weights, deterministic=not is_training)
 
         attn_scores = jnp.einsum('... h q k, ... k h d -> ... q h d',
                                  attn_weights,
                                  value,
                                  precision=self.precision)
 
-        if (self.num_heads * self.head_ch) == self.out_ch:
-            output = rearrange(attn_scores, '... q h d -> ... q (h d)')
-        else:
-            output = nn.DenseGeneral(features=self.out_ch,
-                                     axis=(-2, -1),
-                                     use_bias=self.use_bias,
-                                     dtype=self.dtype,
-                                     precision=self.precision,
-                                     kernel_init=self.kernel_init,
-                                     bias_init=self.bias_init)(attn_scores)
+        output = nn.DenseGeneral(features=out_ch,
+                                 axis=(-2, -1),
+                                 use_bias=self.use_bias,
+                                 dtype=self.dtype,
+                                 precision=self.precision,
+                                 kernel_init=self.kernel_init,
+                                 bias_init=self.bias_init)(attn_scores)
+
+        output = nn.Dropout(rate=self.out_drop_rate)(
+            output, deterministic=not is_training)
+
         return output
+
+
+class SelfAttentionBlock(nn.Module):
+    num_heads: int
+    head_ch: Optional[int] = None
+    out_ch: Optional[int] = None
+    talking_heads: bool = False
+    attn_drop_rate: float = 0.
+    out_drop_rate: float = 0.
+    use_bias: bool = False
+    dtype: jnp.dtype = jnp.float32
+    precision: Precision = Precision.DEFAULT
+    kernel_init: Callable = initializers.kaiming_uniform()
+    bias_init: Callable = initializers.zeros
+
+    @nn.compact
+    def __call__(self, inputs, is_training: bool):
+        return AttentionBlock(num_heads=self.num_heads,
+                              head_ch=self.head_ch,
+                              out_ch=self.out_ch,
+                              talking_heads=self.talking_heads,
+                              attn_drop_rate=self.attn_drop_rate,
+                              out_drop_rate=self.out_drop_rate,
+                              use_bias=self.use_bias,
+                              dtype=self.dtype,
+                              precision=self.precision,
+                              kernel_init=self.kernel_init,
+                              bias_init=self.bias_init)(inputs,
+                                                        inputs,
+                                                        is_training=is_training)

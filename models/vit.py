@@ -11,10 +11,10 @@ from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbe
 
 class EncoderBlock(nn.Module):
     num_heads: int
-    head_ch: int
-    expand_ratio: int
-    dropout_rate: float = 0.
+    expand_ratio: int = 4
     attn_dropout_rate: float = 0.
+    dropout_rate: float = 0.
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
@@ -24,37 +24,33 @@ class EncoderBlock(nn.Module):
     def __call__(self, inputs, is_training: bool):
         x = nn.LayerNorm(dtype=self.dtype)(inputs)
         x = SelfAttentionBlock(num_heads=self.num_heads,
-                               head_ch=self.head_ch,
-                               out_ch=self.num_heads * self.head_ch,
-                               dropout_rate=self.attn_dropout_rate,
+                               attn_drop_rate=self.attn_dropout_rate,
+                               out_drop_rate=self.dropout_rate,
                                dtype=self.dtype,
                                precision=self.precision,
                                kernel_init=self.kernel_init)(
                                    x, is_training=is_training)
-        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not is_training)
-
-        x += inputs
+        x = x + inputs
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
         y = FFBlock(expand_ratio=self.expand_ratio,
                     dropout_rate=self.dropout_rate,
+                    activation_fn=self.activation_fn,
                     dtype=self.dtype,
                     precision=self.precision,
                     kernel_init=self.kernel_init,
                     bias_init=self.bias_init)(y, train=is_training)
-
         output = x + y
         return output
 
 
 class Encoder(nn.Module):
-
     num_layers: int
     num_heads: int
-    head_ch: int
     expand_ratio: int = 4
-    dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
+    dropout_rate: float = 0.
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
@@ -67,10 +63,10 @@ class Encoder(nn.Module):
 
         for _ in range(self.num_layers):
             x = EncoderBlock(num_heads=self.num_heads,
-                             head_ch=self.head_ch,
                              expand_ratio=self.expand_ratio,
-                             dropout_rate=self.dropout_rate,
                              attn_dropout_rate=self.attn_dropout_rate,
+                             dropout_rate=self.dropout_rate,
+                             activation_fn=self.activation_fn,
                              dtype=self.dtype,
                              precision=self.precision,
                              kernel_init=self.kernel_init)(
@@ -81,7 +77,6 @@ class Encoder(nn.Module):
 
 
 class ViT(nn.Module):
-
     num_classes: int
     num_layers: int
     num_heads: int
@@ -90,6 +85,7 @@ class ViT(nn.Module):
     expand_ratio: int = 4
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
@@ -106,13 +102,12 @@ class ViT(nn.Module):
         cls_token = self.param('cls', initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
         x = jnp.concatenate([cls_token, x], axis=1)
-        head_ch = int(self.embed_dim / self.num_heads)
         x = Encoder(num_layers=self.num_layers,
                     num_heads=self.num_heads,
-                    head_ch=head_ch,
                     expand_ratio=self.expand_ratio,
-                    dropout_rate=self.dropout_rate,
                     attn_dropout_rate=self.attn_dropout_rate,
+                    dropout_rate=self.dropout_rate,
+                    activation_fn=self.activation_fn,
                     dtype=self.dtype,
                     precision=self.precision,
                     kernel_init=self.kernel_init)(x, is_training=is_training)

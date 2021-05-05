@@ -10,7 +10,6 @@ from jax import numpy as jnp
 
 
 class FFBlock(nn.Module):
-
     expand_ratio: int = None
     hidden_ch: int = None
     dropout_rate: float = 0.

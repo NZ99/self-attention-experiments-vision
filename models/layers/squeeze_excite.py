@@ -26,8 +26,9 @@ class SqueezeExciteBlock(nn.Module):
         if self.se_ratio is None:
             if self.hidden_ch is None:
                 raise ValueError('Must provide one of se_ratio or hidden_ch')
+            hidden_ch = self.hidden_ch
         else:
-            self.hidden_ch = max(1, int(in_ch * self.se_ratio))
+            hidden_ch = max(1, int(in_ch * self.se_ratio))
 
         dense = partial(nn.Dense,
                         use_bias=True,
@@ -38,7 +39,7 @@ class SqueezeExciteBlock(nn.Module):
 
         x = jnp.mean(inputs, axis=(1, 2), dtype=self.dtype,
                      keepdims=True)(inputs)
-        x = dense(features=self.hidden_ch)(x)
+        x = dense(features=hidden_ch)(x)
         x = self.activation_fn(x)
         x = dense(features=in_ch)(x)
         output = nn.sigmoid(x) * inputs

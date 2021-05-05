@@ -1,2 +1,4 @@
-from models.layers.attentions.attention import SelfAttentionBlock
-from models.layers.attentions.cvt_attention import CvTSelfAttentionBlock
+from models.layers.attentions.attention import AttentionBlock, SelfAttentionBlock
+from models.layers.attentions.cvt_attention import CvTAttentionBlock, CvTSelfAttentionBlock
+from models.layers.attentions.cait_attention import ClassSelfAttentionBlock
+from models.layers.attentions.ceit_attention import LCSelfAttentionBlock
