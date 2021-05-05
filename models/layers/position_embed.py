@@ -16,7 +16,8 @@ def rotate_every_two(x):
 
 
 def apply_rotary_pos_emb(x, sincos):
-    sin, cos = map(lambda t: repeat(t, 'b n -> b (n j)', j=2)[:, None, :], sincos)
+    sin, cos = map(lambda t: repeat(t, 'b n -> b (n j)', j=2)[:, None, :],
+                   sincos)
     return (x * cos) + (rotate_every_two(x) * sin)
 
 
@@ -26,7 +27,7 @@ class FixedPositionalEmbedding(nn.Module):
     def __call__(self, inputs, seq_dim=0):
         dim = inputs.shape[-1]
         intervals = jnp.arange(start=0, stop=self.dim, step=2, dtype=self.dtype)
-        inv_freq = 1. / (10e4 ** intervals / dim)
+        inv_freq = 1. / (10e4**intervals / dim)
         t = jnp.arange(inputs.shape[seq_dim], dtype=self.dtype)
 
         freqs = jnp.einsum('i , j -> i j', t, inv_freq)
@@ -40,7 +41,8 @@ class RotaryPositionalEmbedding(FixedPositionalEmbedding):
 
     @nn.compact
     def __call__(self, inputs, seq_dim=0):
-        sincos = super(RotaryPositionalEmbedding, self).__call__(inputs, seq_dim)
+        sincos = super(RotaryPositionalEmbedding,
+                       self).__call__(inputs, seq_dim)
         emb = apply_rotary_pos_emb(inputs, sincos)
         return emb
 
