@@ -11,7 +11,7 @@ def full(eps: float, dtype: jnp.dtype = jnp.float32):
     return init
 
 
-class LayerScale(nn.Module):
+class LayerScaleBlock(nn.Module):
     eps: float
     dtype: jnp.dtype = jnp.float32
 

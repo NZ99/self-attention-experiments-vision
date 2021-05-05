@@ -95,13 +95,19 @@ class ViT(nn.Module):
     def __call__(self, inputs, is_training: bool):
         assert self.embed_dim % self.num_heads == 0
 
-        x = PatchEmbedBlock(patch_shape=self.patch_shape,
-                            dtype=self.dtype)(inputs)
+        x = PatchEmbedBlock(
+            patch_shape=self.patch_shape,
+            embed_dim=self.embed_dim,
+            dtype=self.dtype,
+            precision=self.precision,
+        )(inputs)
+
         b, l, _ = x.shape
         cls_shape = (1, 1, self.embed_dim)
         cls_token = self.param('cls', initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
         x = jnp.concatenate([cls_token, x], axis=1)
+
         x = Encoder(num_layers=self.num_layers,
                     num_heads=self.num_heads,
                     expand_ratio=self.expand_ratio,
@@ -110,13 +116,15 @@ class ViT(nn.Module):
                     activation_fn=self.activation_fn,
                     dtype=self.dtype,
                     precision=self.precision,
-                    kernel_init=self.kernel_init)(x, is_training=is_training)
-        x = x[:, 0]
+                    kernel_init=self.kernel_init,
+                    bias_init=self.bias_init)(x, is_training=is_training)
+
+        cls_token = x[:, 0]
         output = nn.Dense(
             features=self.num_classes,
             use_bias=True,
             dtype=self.dtype,
             kernel_init=initializers.zeros,
             bias_init=self.bias_init,
-        )(x)
+        )(cls_token)
         return output

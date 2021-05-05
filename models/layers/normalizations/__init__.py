@@ -1,1 +1,1 @@
-from models.layers.normalizations.layerscale import LayerScale
+from models.layers.normalizations.layerscale import LayerScaleBlock
