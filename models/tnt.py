@@ -68,8 +68,8 @@ class Inner2OuterBlock(nn.Module):
 class EncoderBlock(nn.Module):
     inner_num_heads: int
     outer_num_heads: int
-    inner_expand_ratio: int = 4
-    outer_expand_ratio: int = 4
+    inner_expand_ratio: float = 4
+    outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     activation_fn = nn.activation.gelu
@@ -133,8 +133,8 @@ class Encoder(nn.Module):
     num_layers: int
     inner_num_heads: int
     outer_num_heads: int
-    inner_expand_ratio: int = 4
-    outer_expand_ratio: int = 4
+    inner_expand_ratio: float = 4
+    outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     activation_fn = nn.activation.gelu
@@ -170,8 +170,8 @@ class TNT(nn.Module):
     outer_num_heads: int
     inner_embed_dim: int
     outer_embed_dim: int
-    inner_expand_ratio: int = 4
-    outer_expand_ratio: int = 4
+    inner_expand_ratio: float = 4
+    outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     activation_fn = nn.activation.gelu

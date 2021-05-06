@@ -11,7 +11,7 @@ from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbe
 
 class EncoderBlock(nn.Module):
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
@@ -47,7 +47,7 @@ class EncoderBlock(nn.Module):
 class Encoder(nn.Module):
     num_layers: int
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
@@ -82,7 +82,7 @@ class ViT(nn.Module):
     num_heads: int
     embed_dim: int
     patch_shape: Tuple[int, int]
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
@@ -100,6 +100,7 @@ class ViT(nn.Module):
             embed_dim=self.embed_dim,
             dtype=self.dtype,
             precision=self.precision,
+            kernel_init=self.kernel_init,
         )(inputs)
 
         b, l, _ = x.shape

@@ -10,7 +10,7 @@ from jax import numpy as jnp
 
 
 class FFBlock(nn.Module):
-    expand_ratio: int = None
+    expand_ratio: float = None
     hidden_ch: int = None
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
@@ -28,7 +28,7 @@ class FFBlock(nn.Module):
                     'Must provide one of expand_ratio or hidden_ch')
             hidden_ch = self.hidden_ch
         else:
-            hidden_ch = max(1, self.expand_ratio * in_ch)
+            hidden_ch = max(1, int(self.expand_ratio * in_ch))
         dense = partial(nn.Dense,
                         use_bias=True,
                         dtype=self.dtype,

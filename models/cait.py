@@ -10,7 +10,7 @@ from models.layers import PatchEmbedBlock, AddAbsPosEmbed, SelfAttentionBlock, L
 
 class EncoderBlock(nn.Module):
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     stoch_depth_rate: float = 0.
@@ -58,7 +58,7 @@ class EncoderBlock(nn.Module):
 class Encoder(nn.Module):
     num_layers: int
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     stoch_depth_rate: float = 0.
@@ -95,7 +95,7 @@ class Encoder(nn.Module):
 
 class CAEncoderBlock(nn.Module):
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     stoch_depth_rate: float = 0.
@@ -148,7 +148,7 @@ class CaiT(nn.Module):
     num_heads: int
     embed_dim: int
     patch_shape: Tuple[int, int]
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
     stoch_depth_rate: float = 0.

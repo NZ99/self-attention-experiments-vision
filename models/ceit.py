@@ -11,7 +11,7 @@ from models.layers import Image2TokenBlock, SelfAttentionBlock, LeFFBlock, LCSel
 
 class EncoderBlock(nn.Module):
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     leff_kernel_size: Optional[int] = 3
     activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
@@ -49,7 +49,7 @@ class EncoderBlock(nn.Module):
 class Encoder(nn.Module):
     num_layers: int
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     leff_kernel_size: int = 3
     activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
@@ -84,7 +84,7 @@ class Encoder(nn.Module):
 
 class LCAEncoderBlock(nn.Module):
     num_heads: int
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
@@ -124,7 +124,7 @@ class CeiT(nn.Module):
     conv_stride: int = 2
     pool_window_size: int = 3
     pool_stride: int = 2
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     leff_kernel_size: int = 3
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5

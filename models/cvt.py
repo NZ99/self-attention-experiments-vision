@@ -44,7 +44,7 @@ class StageBlock(nn.Module):
     activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
     kernel_init: Callable = initializers.kaiming_uniform()
@@ -87,7 +87,7 @@ class Stage(nn.Module):
     activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     insert_cls: bool = False
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
@@ -139,7 +139,7 @@ class CvT(nn.Module):
     embed_strides: Sequence[int] = [4, 2, 2]
     sa_kernel_size: Sequence[int] = [3, 3, 3]
     use_bias: bool = False
-    expand_ratio: int = 4
+    expand_ratio: float = 4
     activation_fn = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
