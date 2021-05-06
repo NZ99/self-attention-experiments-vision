@@ -53,6 +53,7 @@ class AddAbsPosEmbed(nn.Module):
 
     @nn.compact
     def __call__(self, inputs):
+        assert inputs.ndim == 3
         pos_emb_shape = (1, inputs.shape[1], inputs.shape[2])
         pos_emb = self.param('pos_embed', self.embed_init, pos_emb_shape)
         output = inputs + pos_emb

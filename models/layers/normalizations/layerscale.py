@@ -19,5 +19,6 @@ class LayerScaleBlock(nn.Module):
     def __call__(self, inputs, *unused_args, **unused_kwargs):
         in_ch = inputs.shape[-1]
         scale = self.param('layerscale', full(self.eps, dtype=self.dtype),
-                           (in_ch))
+                           (in_ch,))
+        scale = jnp.asarray(scale, self.dtype)
         return inputs * scale

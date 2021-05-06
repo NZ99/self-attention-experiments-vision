@@ -38,7 +38,8 @@ class StochasticDepthBlock(nn.Module):
         rng = self.make_rng('stochastic_depth')
 
         b = inputs.shape[0]
-        random_tensor = random.uniform(rng, [b, 1, 1, 1], dtype=inputs.dtype)
+        shape = [b, ] + ([1, ] * (inputs.ndim - 1))
+        random_tensor = random.uniform(rng, shape, dtype=inputs.dtype)
         binary_tensor = jnp.floor(keep_prob + random_tensor)
 
         if self.scale_by_keep:

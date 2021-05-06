@@ -25,6 +25,3 @@ class BoTNetTest(parameterized.TestCase):
 
 if __name__ == '__main__':
     absltest.main()
-
-if __name__ == '__main__':
-    absltest.main()
