@@ -12,8 +12,8 @@ class AttentionBlock(nn.Module):
     head_ch: Optional[int] = None
     out_ch: Optional[int] = None
     talking_heads: bool = False
-    attn_drop_rate: float = 0.
-    out_drop_rate: float = 0.
+    attn_dropout_rate: float = 0.
+    out_dropout_rate: float = 0.
     use_bias: bool = False
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
@@ -83,7 +83,7 @@ class AttentionBlock(nn.Module):
                                  kernel_init=self.kernel_init,
                                  bias_init=self.bias_init)(attn_scores)
 
-        output = nn.Dropout(rate=self.out_drop_rate)(
+        output = nn.Dropout(rate=self.out_dropout_rate)(
             output, deterministic=not is_training)
 
         return output

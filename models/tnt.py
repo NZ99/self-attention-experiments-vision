@@ -82,8 +82,8 @@ class EncoderBlock(nn.Module):
     def __call__(self, patch_inputs, pixel_inputs, is_training: bool):
         inner_x = nn.LayerNorm(dtype=self.dtype)(pixel_inputs)
         inner_x = SelfAttentionBlock(num_heads=self.inner_num_heads,
-                                     attn_drop_rate=self.attn_dropout_rate,
-                                     out_drop_rate=self.dropout_rate,
+                                     attn_dropout_rate=self.attn_dropout_rate,
+                                     out_dropout_rate=self.dropout_rate,
                                      dtype=self.dtype,
                                      precision=self.precision,
                                      kernel_init=self.kernel_init,
@@ -108,8 +108,8 @@ class EncoderBlock(nn.Module):
 
         outer_x = nn.LayerNorm(dtype=self.dtype)(outer_x)
         outer_x = SelfAttentionBlock(num_heads=self.outer_num_heads,
-                                     attn_drop_rate=self.attn_dropout_rate,
-                                     out_drop_rate=self.dropout_rate,
+                                     attn_dropout_rate=self.attn_dropout_rate,
+                                     out_dropout_rate=self.dropout_rate,
                                      dtype=self.dtype,
                                      precision=self.precision,
                                      kernel_init=self.kernel_init,

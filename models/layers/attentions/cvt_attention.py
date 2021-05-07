@@ -147,7 +147,7 @@ class CvTAttentionBlock(nn.Module):
                                  kernel_init=self.kernel_init,
                                  bias_init=self.bias_init)(attn_scores)
 
-        output = nn.Dropout(rate=self.out_drop_rate)(
+        output = nn.Dropout(rate=self.out_dropout_rate)(
             output, deterministic=not is_training)
 
         return output
