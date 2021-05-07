@@ -6,6 +6,8 @@ from jax import numpy as jnp
 
 from einops import rearrange
 
+from models.layers.attentions import TalkingHeadsBlock
+
 
 class ConvProjectionBlock(nn.Module):
     out_ch: int
@@ -95,20 +97,14 @@ class CvTAttentionBlock(nn.Module):
                                   key)
 
         if self.talking_heads:
-            pre_softmax_transform = self.param('pre_softmax',
-                                               nn.initializers.orthogonal,
-                                               (self.num_heads, self.num_heads))
-            attn_weights = jnp.einsum('... h q k, h i -> ... i q k',
-                                      attn_weights, pre_softmax_transform)
+            attn_weights = TalkingHeadsBlock(
+                num_heads=self.num_heads)(attn_weights)
 
         attn_weights = nn.softmax(attn_weights)
 
         if self.talking_heads:
-            post_softmax_transform = self.param(
-                'post_softmax', nn.initializers.orthogonal,
-                (self.num_heads, self.num_heads))
-            attn_weights = jnp.einsum('... i q k, i h -> ... h q k',
-                                      attn_weights, post_softmax_transform)
+            attn_weights = TalkingHeadsBlock(
+                num_heads=self.num_heads)(attn_weights)
 
         attn_weights = nn.Dropout(rate=self.attn_dropout_rate)(
             attn_weights, deterministic=not is_training)

@@ -4,6 +4,8 @@ from typing import Optional
 from flax import linen as nn
 from jax import numpy as jnp
 
+from models.layers.attentions import TalkingHeadsBlock
+
 
 class AttentionBlock(nn.Module):
     num_heads: int
@@ -36,23 +38,18 @@ class AttentionBlock(nn.Module):
 
         query = query / jnp.sqrt(head_ch)
 
-        attn_weights = jnp.einsum('...qhd, ...khd -> ...hqk', query, key)
+        attn_weights = jnp.einsum('... q h d, ... k h d -> ... h q k', query,
+                                  key)
 
         if self.talking_heads:
-            pre_softmax_transform = self.param('pre_softmax',
-                                               nn.initializers.orthogonal,
-                                               (self.num_heads, self.num_heads))
-            attn_weights = jnp.einsum('...hqk, hi -> ...iqk', attn_weights,
-                                      pre_softmax_transform)
+            attn_weights = TalkingHeadsBlock(
+                num_heads=self.num_heads)(attn_weights)
 
         attn_weights = nn.softmax(attn_weights)
 
         if self.talking_heads:
-            post_softmax_transform = self.param(
-                'post_softmax', nn.initializers.orthogonal,
-                (self.num_heads, self.num_heads))
-            attn_weights = jnp.einsum('...iqk, ih -> ...hqk', attn_weights,
-                                      post_softmax_transform)
+            attn_weights = TalkingHeadsBlock(
+                num_heads=self.num_heads)(attn_weights)
 
         attn_weights = nn.Dropout(rate=self.attn_dropout_rate)(
             attn_weights, deterministic=not is_training)
