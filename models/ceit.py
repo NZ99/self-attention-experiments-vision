@@ -6,7 +6,15 @@ from flax.linen import initializers
 from jax import numpy as jnp
 from jax.lax import Precision
 
-from models.layers import Image2TokenBlock, SelfAttentionBlock, LeFFBlock, LCSelfAttentionBlock, FFBlock
+from models.layers import Image2TokenBlock, AttentionBlock, SelfAttentionBlock, LeFFBlock, FFBlock
+
+
+class LCSelfAttentionBlock(AttentionBlock):
+
+    @nn.compact
+    def __call__(self, inputs, is_training: bool):
+        inputs_q = jnp.expand_dims(inputs[:, -1, :], axis=1)
+        return super().__call__(inputs_q, inputs, is_training=is_training)
 
 
 class EncoderBlock(nn.Module):

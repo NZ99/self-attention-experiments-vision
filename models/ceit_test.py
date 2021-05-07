@@ -10,14 +10,21 @@ from models import CeiT
 
 class CeiTTest(parameterized.TestCase):
 
-    @parameterized.named_parameters(('CeiT-T', 224, 1000, 3, 192),
-                                    ('CeiT-S', 224, 1000, 6, 384),
-                                    ('CeiT-B', 224, 1000, 12, 768))
-    def test_logits_shape(self, img_resolution, num_classes, num_heads,
+    @parameterized.named_parameters(('CeiT-T', 224, 1000, 12, 3, 192),
+                                    ('CeiT-S', 224, 1000, 12, 6, 384),
+                                    ('CeiT-B', 224, 1000, 12, 12, 768))
+    def test_logits_shape(self,
+                          img_resolution,
+                          num_classes,
+                          num_layers,
+                          num_heads,
                           embed_dim):
+
         model = CeiT(num_classes=num_classes,
+                     num_layers=num_layers,
                      num_heads=num_heads,
                      embed_dim=embed_dim)
+
         rng = dict(params=random.PRNGKey(0))
         x = jnp.ones((2, img_resolution, img_resolution, 3))
         logits, _ = model.init_with_output(rng, x, is_training=True)
