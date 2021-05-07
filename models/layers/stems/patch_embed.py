@@ -11,7 +11,7 @@ from einops import rearrange
 
 class PatchEmbedBlock(nn.Module):
 
-    patch_shape: Tuple[int, int]
+    patch_shape: Tuple[int]
     embed_dim: int
     use_bias: bool = False
     dtype: jnp.dtype = jnp.float32

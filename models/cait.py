@@ -27,7 +27,7 @@ class EncoderBlock(nn.Module):
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
+    kernel_init: Callable = initializers.kaiming_uniform
     bias_init: Callable = initializers.zeros
 
     @nn.compact
@@ -166,16 +166,18 @@ class CaiT(nn.Module):
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
+    kernel_init: Callable = initializers.kaiming_uniform
     bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
+
         x = PatchEmbedBlock(
             patch_shape=self.patch_shape,
             embed_dim=self.embed_dim,
             dtype=self.dtype,
             precision=self.precision,
+            kernel_init=self.kernel_init,
         )(inputs)
 
         x = Encoder(num_layers=self.num_layers,

@@ -5,7 +5,7 @@ import chex
 import jax.numpy as jnp
 import jax.random as random
 
-from models import CaiT
+from models.cait import CaiT
 
 
 class CaiTTest(parameterized.TestCase):
@@ -19,19 +19,12 @@ class CaiTTest(parameterized.TestCase):
         ('CaiT-S-36', 224, 1000, 36, 2, 8, 384, (16, 16), 0.2, 1e-6),
         ('CaiT-S-48', 224, 1000, 48, 2, 8, 384, (16, 16), 0.3, 1e-6),
         ('CaiT-M-24', 224, 1000, 24, 2, 16, 768, (16, 16), 0.2, 1e-5),
-        ('CaiT-M-36', 224, 1000, 36, 2, 16, 768, (16, 16), 0.3, 1e-6),
-        ('CaiT-M-36', 224, 1000, 36, 2, 16, 768, (16, 16), 0.4, 1e-6)
-    )
-    def test_logits_shape(self,
-                          img_resolution,
-                          num_classes,
-                          num_layers,
-                          num_layers_token_only,
-                          num_heads,
-                          embed_dim,
-                          patch_shape,
-                          stoch_depth_rate,
-                          layerscale_eps):
+        ('CaiT-M-36', 224, 1000, 36, 2, 16, 768,
+         (16, 16), 0.3, 1e-6), ('CaiT-M-36', 224, 1000, 36, 2, 16, 768,
+                                (16, 16), 0.4, 1e-6))
+    def test_logits_shape(self, img_resolution, num_classes, num_layers,
+                          num_layers_token_only, num_heads, embed_dim,
+                          patch_shape, stoch_depth_rate, layerscale_eps):
 
         model = CaiT(num_classes=num_classes,
                      num_layers=num_layers,
