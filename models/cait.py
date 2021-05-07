@@ -140,13 +140,9 @@ class CaiT(nn.Module):
     @nn.compact
     def __call__(self, inputs, is_training: bool):
 
-        x = PatchEmbedBlock(
-            patch_shape=self.patch_shape,
-            embed_dim=self.embed_dim,
-            dtype=self.dtype,
-            precision=self.precision,
-            kernel_init=self.kernel_init,
-        )(inputs)
+        x = PatchEmbedBlock(patch_shape=self.patch_shape,
+                            embed_dim=self.embed_dim,
+                            dtype=self.dtype)(inputs)
 
         x = Encoder(num_layers=self.num_layers,
                     num_heads=self.num_heads,
