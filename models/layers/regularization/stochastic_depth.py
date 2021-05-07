@@ -3,27 +3,6 @@ import jax.random as random
 import flax.linen as nn
 
 
-class StochDepth(hk.Module):
-    """Batchwise Dropout used in EfficientNet, optionally sans rescaling."""
-
-    def __init__(self, drop_rate, scale_by_keep=False, name=None):
-        super().__init__(name=name)
-        self.drop_rate = drop_rate
-        self.scale_by_keep = scale_by_keep
-
-    def __call__(self, x, is_training) -> jnp.ndarray:
-        if not is_training:
-            return x
-        batch_size = x.shape[0]
-        r = jax.random.uniform(hk.next_rng_key(), [batch_size, 1, 1, 1],
-                               dtype=x.dtype)
-        keep_prob = 1. - self.drop_rate
-        binary_tensor = jnp.floor(keep_prob + r)
-        if self.scale_by_keep:
-            x = x / keep_prob
-        return x * binary_tensor
-
-
 class StochasticDepthBlock(nn.Module):
     drop_rate: float
     scale_by_keep: bool = True
