@@ -45,7 +45,7 @@ class EncoderBlock(nn.Module):
                     dtype=self.dtype,
                     precision=self.precision,
                     kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, train=is_training)
+                    bias_init=self.bias_init)(y, is_training=is_training)
         y = LayerScaleBlock(eps=self.layerscale_eps,
                             dtype=self.dtype)(y, is_training=is_training)
         y = StochasticDepthBlock(drop_rate=self.stoch_depth_rate)(
@@ -131,7 +131,7 @@ class CAEncoderBlock(nn.Module):
                     dtype=self.dtype,
                     precision=self.precision,
                     kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, train=is_training)
+                    bias_init=self.bias_init)(y, is_training=is_training)
         y = LayerScaleBlock(eps=self.layerscale_eps,
                             dtype=self.dtype)(y, is_training=is_training)
         y = StochasticDepthBlock(drop_rate=self.stoch_depth_rate)(

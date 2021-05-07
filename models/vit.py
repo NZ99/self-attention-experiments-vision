@@ -39,7 +39,7 @@ class EncoderBlock(nn.Module):
                     dtype=self.dtype,
                     precision=self.precision,
                     kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, train=is_training)
+                    bias_init=self.bias_init)(y, is_training=is_training)
         output = x + y
         return output
 
@@ -83,8 +83,8 @@ class ViT(nn.Module):
     embed_dim: int
     patch_shape: Tuple[int]
     expand_ratio: float = 4
-    dropout_rate: float = 0.
     attn_dropout_rate: float = 0.
+    dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
