@@ -24,8 +24,8 @@ class EncoderBlock(nn.Module):
     def __call__(self, inputs, is_training: bool):
         x = nn.LayerNorm(dtype=self.dtype)(inputs)
         x = SelfAttentionBlock(num_heads=self.num_heads,
-                               attn_drop_rate=self.attn_dropout_rate,
-                               out_drop_rate=self.dropout_rate,
+                               attn_dropout_rate=self.attn_dropout_rate,
+                               out_dropout_rate=self.dropout_rate,
                                dtype=self.dtype,
                                precision=self.precision,
                                kernel_init=self.kernel_init)(
