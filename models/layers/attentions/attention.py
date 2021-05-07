@@ -1,10 +1,8 @@
 from functools import partial
-from typing import Callable, Optional
+from typing import Optional
 
 from flax import linen as nn
-from flax.linen import initializers
 from jax import numpy as jnp
-from jax.lax import Precision
 
 
 class AttentionBlock(nn.Module):
@@ -16,9 +14,6 @@ class AttentionBlock(nn.Module):
     out_dropout_rate: float = 0.
     use_bias: bool = False
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv, is_training: bool):
@@ -33,10 +28,7 @@ class AttentionBlock(nn.Module):
                         axis=-1,
                         features=(self.num_heads, head_ch),
                         use_bias=self.use_bias,
-                        dtype=self.dtype,
-                        precision=self.precision,
-                        kernel_init=self.kernel_init,
-                        bias_init=self.bias_init)
+                        dtype=self.dtype)
 
         query = dense(name='queries')(inputs_q)
         key = dense(name='keys')(inputs_kv)
@@ -44,48 +36,37 @@ class AttentionBlock(nn.Module):
 
         query = query / jnp.sqrt(head_ch)
 
-        attn_weights = jnp.einsum('... q h d, ... k h d -> ... h q k',
-                                  query,
-                                  key,
-                                  precision=self.precision)
+        attn_weights = jnp.einsum('...qhd, ...khd -> ...hqk', query, key)
+
         if self.talking_heads:
-            pre_softmax_transform = self.param('pre_softmax', self.kernel_init,
+            pre_softmax_transform = self.param('pre_softmax',
+                                               nn.initializers.orthogonal,
                                                (self.num_heads, self.num_heads))
-            attn_weights = jnp.einsum('... h q k, h i -> ... i q k',
-                                      attn_weights,
-                                      pre_softmax_transform,
-                                      precision=self.precision)
+            attn_weights = jnp.einsum('...hqk, hi -> ...iqk', attn_weights,
+                                      pre_softmax_transform)
 
         attn_weights = nn.softmax(attn_weights)
 
         if self.talking_heads:
             post_softmax_transform = self.param(
-                'post_softmax', self.kernel_init,
+                'post_softmax', nn.initializers.orthogonal,
                 (self.num_heads, self.num_heads))
-            attn_weights = jnp.einsum('... i q k, i h -> ... h q k',
-                                      attn_weights,
-                                      post_softmax_transform,
-                                      precision=self.precision)
+            attn_weights = jnp.einsum('...iqk, ih -> ...hqk', attn_weights,
+                                      post_softmax_transform)
 
         attn_weights = nn.Dropout(rate=self.attn_dropout_rate)(
             attn_weights, deterministic=not is_training)
 
         attn_scores = jnp.einsum('... h q k, ... k h d -> ... q h d',
-                                 attn_weights,
-                                 value,
-                                 precision=self.precision)
+                                 attn_weights, value)
 
         output = nn.DenseGeneral(features=out_ch,
                                  axis=(-2, -1),
                                  use_bias=self.use_bias,
-                                 dtype=self.dtype,
-                                 precision=self.precision,
-                                 kernel_init=self.kernel_init,
-                                 bias_init=self.bias_init)(attn_scores)
+                                 dtype=self.dtype)(attn_scores)
 
         output = nn.Dropout(rate=self.out_dropout_rate)(
             output, deterministic=not is_training)
-
         return output
 
 

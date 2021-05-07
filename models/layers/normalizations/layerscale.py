@@ -1,6 +1,5 @@
-import jax.numpy as jnp
-
 import flax.linen as nn
+import jax.numpy as jnp
 
 
 def full(eps: float, dtype: jnp.dtype = jnp.float32):

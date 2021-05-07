@@ -4,7 +4,6 @@ from typing import Tuple, Callable, Optional
 from flax import linen as nn
 from flax.linen import initializers
 from jax import numpy as jnp
-from jax.lax import Precision
 
 from models.layers import Image2TokenBlock, AttentionBlock, SelfAttentionBlock, LeFFBlock, FFBlock
 
@@ -25,18 +24,12 @@ class EncoderBlock(nn.Module):
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
         x = SelfAttentionBlock(num_heads=self.num_heads,
-                               dtype=self.dtype,
-                               precision=self.precision,
-                               kernel_init=self.kernel_init,
-                               bias_init=self.bias_init)(
-                                   inputs, is_training=is_training)
+                               dtype=self.dtype)(inputs,
+                                                 is_training=is_training)
         x += inputs
         x = nn.LayerNorm(dtype=self.dtype)(x)
 
@@ -45,10 +38,7 @@ class EncoderBlock(nn.Module):
                       activation_fn=self.activation_fn,
                       bn_momentum=self.bn_momentum,
                       bn_epsilon=self.bn_epsilon,
-                      dtype=self.dtype,
-                      precision=self.precision,
-                      kernel_init=self.kernel_init,
-                      bias_init=self.bias_init)(x, is_training=is_training)
+                      dtype=self.dtype)(x, is_training=is_training)
         y = x + y
         output = nn.LayerNorm(dtype=self.dtype)(y)
         return output
@@ -63,9 +53,6 @@ class Encoder(nn.Module):
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -76,10 +63,7 @@ class Encoder(nn.Module):
                                 activation_fn=self.activation_fn,
                                 bn_momentum=self.bn_momentum,
                                 bn_epsilon=self.bn_epsilon,
-                                dtype=self.dtype,
-                                precision=self.precision,
-                                kernel_init=self.kernel_init,
-                                bias_init=self.bias_init)
+                                dtype=self.dtype)
 
         x = encoder_block()(inputs, is_training=is_training)
         cls_tokens_lst = [jnp.expand_dims(x[:, 0], axis=1)]
@@ -95,27 +79,18 @@ class LCAEncoderBlock(nn.Module):
     expand_ratio: float = 4
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
         x = LCSelfAttentionBlock(num_heads=self.num_heads,
-                                 dtype=self.dtype,
-                                 precision=self.precision,
-                                 kernel_init=self.kernel_init,
-                                 bias_init=self.bias_init)(
-                                     inputs, is_training=is_training)
+                                 dtype=self.dtype)(inputs,
+                                                   is_training=is_training)
         x += inputs
         x = nn.LayerNorm(dtype=self.dtype)(x)
 
         y = FFBlock(expand_ratio=self.expand_ratio,
                     activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(x, is_training=is_training)
+                    dtype=self.dtype)(x, is_training=is_training)
         y = x + y
         output = nn.LayerNorm(dtype=self.dtype)(y)
         return output
@@ -138,9 +113,6 @@ class CeiT(nn.Module):
     bn_epsilon: float = 1e-5
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -155,11 +127,7 @@ class CeiT(nn.Module):
                              embed_dim=self.embed_dim,
                              bn_momentum=self.bn_momentum,
                              bn_epsilon=self.bn_epsilon,
-                             dtype=self.dtype,
-                             precision=self.precision,
-                             kernel_init=self.kernel_init,
-                             bias_init=self.bias_init)(inputs,
-                                                       is_training=is_training)
+                             dtype=self.dtype)(inputs, is_training=is_training)
 
         b = x.shape[0]
         cls_shape = (1, 1, self.embed_dim)
@@ -174,23 +142,12 @@ class CeiT(nn.Module):
                              leff_kernel_size=self.leff_kernel_size,
                              bn_momentum=self.bn_momentum,
                              bn_epsilon=self.bn_epsilon,
-                             dtype=self.dtype,
-                             precision=self.precision,
-                             kernel_init=self.kernel_init,
-                             bias_init=self.bias_init)(x,
-                                                       is_training=is_training)
+                             dtype=self.dtype)(x, is_training=is_training)
 
         cls_tokens = LCSelfAttentionBlock(num_heads=self.num_heads,
-                                          dtype=self.dtype,
-                                          precision=self.precision,
-                                          kernel_init=self.kernel_init,
-                                          bias_init=self.bias_init)(
+                                          dtype=self.dtype)(
                                               cls_tokens,
                                               is_training=is_training)
         cls = cls_tokens[:, -1]
-        output = nn.Dense(features=self.num_classes,
-                          use_bias=True,
-                          dtype=self.dtype,
-                          kernel_init=self.kernel_init,
-                          bias_init=self.bias_init)(cls)
+        output = nn.Dense(features=self.num_classes, dtype=self.dtype)(cls)
         return output

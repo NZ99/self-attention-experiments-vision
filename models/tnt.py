@@ -1,9 +1,7 @@
-from typing import Callable, Tuple, Optional
+from typing import Tuple, Optional
 
-import jax.numpy as jnp
-from jax.nn import initializers
-from jax.lax import Precision
 import flax.linen as nn
+import jax.numpy as jnp
 from einops import rearrange
 
 from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbedBlock
@@ -15,9 +13,6 @@ class PixelEmbedBlock(nn.Module):
     embed_dim: int
     use_bias = False
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs):
@@ -34,19 +29,13 @@ class PixelEmbedBlock(nn.Module):
                       t2=self.transformed_patch_shape[1])
         output = nn.Dense(self.embed_dim,
                           use_bias=self.use_bias,
-                          dtype=self.dtype,
-                          precision=self.precision,
-                          kernel_init=self.kernel_init,
-                          bias_init=self.bias_init)(x)
+                          dtype=self.dtype)(x)
         return output
 
 
 class Inner2OuterBlock(nn.Module):
     out_ch: Optional[int] = None
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, patch_inputs, pixel_inputs):
@@ -54,11 +43,7 @@ class Inner2OuterBlock(nn.Module):
         out_ch = self.out_ch or patch_inputs.shape[-1]
 
         x = rearrange(pixel_inputs, '... n d -> ... (n d)')
-        x = nn.Dense(features=out_ch,
-                     dtype=self.dtype,
-                     precision=self.precision,
-                     kernel_init=self.kernel_init,
-                     bias_init=self.bias_init)(x)
+        x = nn.Dense(features=out_ch, dtype=self.dtype)(x)
         x = rearrange(x, '(b h w) d -> b (h w) d', b=b)
         x = jnp.pad(x, ((0, 0), (1, 0), (0, 0)))
         output = x + patch_inputs
@@ -74,9 +59,6 @@ class EncoderBlock(nn.Module):
     dropout_rate: float = 0.
     activation_fn = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, patch_inputs, pixel_inputs, is_training: bool):
@@ -84,46 +66,28 @@ class EncoderBlock(nn.Module):
         inner_x = SelfAttentionBlock(num_heads=self.inner_num_heads,
                                      attn_dropout_rate=self.attn_dropout_rate,
                                      out_dropout_rate=self.dropout_rate,
-                                     dtype=self.dtype,
-                                     precision=self.precision,
-                                     kernel_init=self.kernel_init,
-                                     bias_init=self.bias_init)(
-                                         inner_x, is_training=is_training)
+                                     dtype=self.dtype)(inner_x,
+                                                       is_training=is_training)
         inner_x = inner_x + pixel_inputs
         inner_y = nn.LayerNorm(dtype=self.dtype)(inner_x)
         inner_y = FFBlock(expand_ratio=self.inner_expand_ratio,
                           dropout_rate=self.dropout_rate,
-                          dtype=self.dtype,
-                          precision=self.precision,
-                          kernel_init=self.kernel_init,
-                          bias_init=self.bias_init)(inner_y,
-                                                    is_training=is_training)
+                          dtype=self.dtype)(inner_y, is_training=is_training)
         inner_output = inner_x + inner_y
 
-        outer_x = Inner2OuterBlock(dtype=self.dtype,
-                                   precision=self.precision,
-                                   kernel_init=self.kernel_init,
-                                   bias_init=self.bias_init)(inner_output,
-                                                             patch_inputs)
+        outer_x = Inner2OuterBlock(dtype=self.dtype)(inner_output, patch_inputs)
 
         outer_x = nn.LayerNorm(dtype=self.dtype)(outer_x)
         outer_x = SelfAttentionBlock(num_heads=self.outer_num_heads,
                                      attn_dropout_rate=self.attn_dropout_rate,
                                      out_dropout_rate=self.dropout_rate,
-                                     dtype=self.dtype,
-                                     precision=self.precision,
-                                     kernel_init=self.kernel_init,
-                                     bias_init=self.bias_init)(
-                                         outer_x, is_training=is_training)
+                                     dtype=self.dtype)(outer_x,
+                                                       is_training=is_training)
         outer_x = outer_x + patch_inputs
         outer_y = nn.LayerNorm(dtype=self.dtype)(outer_x)
         outer_y = FFBlock(expand_ratio=self.outer_expand_ratio,
                           dropout_rate=self.dropout_rate,
-                          dtype=self.dtype,
-                          precision=self.precision,
-                          kernel_init=self.kernel_init,
-                          bias_init=self.bias_init)(outer_y,
-                                                    is_training=is_training)
+                          dtype=self.dtype)(outer_y, is_training=is_training)
         outer_output = outer_x + outer_y
 
         return outer_output, inner_output
@@ -139,10 +103,6 @@ class Encoder(nn.Module):
     dropout_rate: float = 0.
     activation_fn = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
-    pos_embed_init: Callable = initializers.normal(stddev=0.02)
 
     @nn.compact
     def __call__(self, patch_embeddings, pixel_embeddings, is_training: bool):
@@ -153,10 +113,7 @@ class Encoder(nn.Module):
                 attn_dropout_rate=self.attn_dropout_rate,
                 dropout_rate=self.dropout_rate,
                 activation_fn=self.activation_fn,
-                dtype=self.dtype,
-                precision=self.precision,
-                kernel_init=self.kernel_init,
-                bias_init=self.bias_init)(patch_embeddings, pixel_embeddings)
+                dtype=self.dtype)(patch_embeddings, pixel_embeddings)
 
             output = patch_embeddings
             return output
@@ -176,10 +133,6 @@ class TNT(nn.Module):
     dropout_rate: float = 0.
     activation_fn = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
-    pos_embed_init: Callable = initializers.normal(stddev=0.02)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -187,29 +140,21 @@ class TNT(nn.Module):
             patch_shape=self.patch_shape,
             transformed_patch_shape=self.transformed_patch_shape,
             embed_dim=self.inner_embed_dim,
-            dtype=self.dtype,
-            precision=self.precision,
-            kernel_init=self.kernel_init)(inputs)
-
-        pixel_embeddings = AddAbsPosEmbed(
-            embed_init=self.pos_embed_init)(pixel_embeddings)
+            dtype=self.dtype)(inputs)
+        pixel_embeddings = AddAbsPosEmbed()(pixel_embeddings)
 
         patch_embeddings = PatchEmbedBlock(patch_shape=self.patch_shape,
                                            embed_dim=self.outer_embed_dim,
-                                           dtype=self.dtype,
-                                           precision=self.precision,
-                                           kernel_init=self.kernel_init,
-                                           bias_init=self.bias_init)(inputs)
+                                           dtype=self.dtype)(inputs)
 
         b, l, _ = patch_embeddings.shape
         cls_shape = (1, 1, self.outer_embed_dim)
-        cls_token = self.param('cls', initializers.zeros, cls_shape)
+        cls_token = self.param('cls', nn.initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
         patch_embeddings = jnp.concatenate([cls_token, patch_embeddings],
                                            axis=1)
 
-        patch_embeddings = AddAbsPosEmbed(
-            embed_init=self.pos_embed_init)(patch_embeddings)
+        patch_embeddings = AddAbsPosEmbed()(patch_embeddings)
         patch_embeddings = nn.Dropout(rate=self.dropout_rate)(
             patch_embeddings, deterministic=not is_training)
 
@@ -219,20 +164,14 @@ class TNT(nn.Module):
                                    attn_dropout_rate=self.attn_dropout_rate,
                                    dropout_rate=self.dropout_rate,
                                    activation_fn=self.activation_fn,
-                                   dtype=self.dtype,
-                                   precision=self.precision,
-                                   kernel_init=self.kernel_init,
-                                   bias_init=self.bias_init)(
-                                       patch_embeddings,
-                                       pixel_embeddings,
-                                       is_training=is_training)
+                                   dtype=self.dtype)(patch_embeddings,
+                                                     pixel_embeddings,
+                                                     is_training=is_training)
 
         cls_token = patch_embeddings[:, 0]
         output = nn.Dense(
             features=self.num_classes,
-            use_bias=True,
             dtype=self.dtype,
-            kernel_init=initializers.zeros,
-            bias_init=self.bias_init,
+            kernel_init=nn.initializers.zeros,
         )(cls_token)
         return output

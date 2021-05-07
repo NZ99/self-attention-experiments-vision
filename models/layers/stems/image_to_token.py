@@ -1,11 +1,7 @@
-from typing import Callable, Tuple
+from typing import Tuple
 
-from flax.linen import initializers
 from flax import linen as nn
-
-from jax.lax import Precision
 from jax import numpy as jnp
-
 from einops import rearrange
 
 
@@ -21,13 +17,9 @@ class Image2TokenBlock(nn.Module):
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
-
         x = nn.Conv(features=self.num_ch,
                     use_bias=self.use_bias,
                     kernel_size=(self.conv_kernel_size, self.conv_kernel_size),
@@ -52,8 +44,5 @@ class Image2TokenBlock(nn.Module):
 
         output = nn.Dense(features=self.embed_dim,
                           use_bias=self.use_bias,
-                          dtype=self.dtype,
-                          precision=self.precision,
-                          kernel_init=self.kernel_init,
-                          bias_init=self.bias_init)(x)
+                          dtype=self.dtype)(x)
         return output

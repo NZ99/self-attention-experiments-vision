@@ -1,13 +1,8 @@
+from functools import partial
 from typing import Callable
 
-from functools import partial
-
 from jax import numpy as jnp
-from jax.lax import Precision
-
 from flax import linen as nn
-from flax.linen import initializers
-
 from einops import rearrange
 
 
@@ -19,9 +14,6 @@ class LeFFBlock(nn.Module):
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -36,12 +28,7 @@ class LeFFBlock(nn.Module):
         else:
             hidden_ch = max(1, int(self.expand_ratio * in_ch))
 
-        dense = partial(nn.Dense,
-                        use_bias=True,
-                        dtype=self.dtype,
-                        precision=self.precision,
-                        kernel_init=self.kernel_init,
-                        bias_init=self.bias_init)
+        dense = partial(nn.Dense, use_bias=True, dtype=self.dtype)
 
         batch_norm = partial(nn.BatchNorm,
                              use_running_average=not is_training,
@@ -61,10 +48,6 @@ class LeFFBlock(nn.Module):
             kernel_size=(self.kernel_size, self.kernel_size),
             padding='SAME',
             dtype=self.dtype,
-            precision=self.precision,
-            feature_group_count=hidden_ch,
-            kernel_init=self.kernel_init,
-            bias_init=self.bias_init,
         )(x)
         x = batch_norm()(x)
         x = self.activation_fn(x)
@@ -75,6 +58,6 @@ class LeFFBlock(nn.Module):
         x = batch_norm()(x)
         x = self.activation_fn(x)
 
-        output = jnp.concatenate([jnp.expand_dims(cls, axis=1), x],
-                                 axis=1)  # check if this is correct
+        cls_token = jnp.expand_dims(cls, axis=1)
+        output = jnp.concatenate([cls_token, x], axis=1)
         return output

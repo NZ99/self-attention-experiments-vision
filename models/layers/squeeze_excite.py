@@ -16,9 +16,6 @@ class SqueezeExciteBlock(nn.Module):
     hidden_ch: int = None
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = nn.initializers.kaiming_uniform()
-    bias_init: Callable = nn.initializers.zeros
 
     @nn.compact
     def __call__(self, inputs):
@@ -30,12 +27,7 @@ class SqueezeExciteBlock(nn.Module):
         else:
             hidden_ch = max(1, int(in_ch * self.se_ratio))
 
-        dense = partial(nn.Dense,
-                        use_bias=True,
-                        dtype=self.dtype,
-                        precision=self.precision,
-                        kernel_init=self.kernel_init,
-                        bias_init=self.bias_init)
+        dense = partial(nn.Dense, use_bias=True, dtype=self.dtype)
 
         x = jnp.mean(inputs, axis=(1, 2), dtype=self.dtype,
                      keepdims=True)(inputs)

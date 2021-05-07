@@ -1,10 +1,7 @@
 from typing import Tuple, Callable
 
-from jax import numpy as jnp
-from jax.lax import Precision
-
-from flax.linen import initializers
 from flax import linen as nn
+from jax import numpy as jnp
 
 from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbedBlock
 
@@ -16,9 +13,6 @@ class EncoderBlock(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -26,20 +20,14 @@ class EncoderBlock(nn.Module):
         x = SelfAttentionBlock(num_heads=self.num_heads,
                                attn_dropout_rate=self.attn_dropout_rate,
                                out_dropout_rate=self.dropout_rate,
-                               dtype=self.dtype,
-                               precision=self.precision,
-                               kernel_init=self.kernel_init)(
-                                   x, is_training=is_training)
+                               dtype=self.dtype)(x, is_training=is_training)
         x = x + inputs
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
         y = FFBlock(expand_ratio=self.expand_ratio,
                     dropout_rate=self.dropout_rate,
                     activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, is_training=is_training)
+                    dtype=self.dtype)(y, is_training=is_training)
         output = x + y
         return output
 
@@ -52,9 +40,6 @@ class Encoder(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -67,10 +52,7 @@ class Encoder(nn.Module):
                              attn_dropout_rate=self.attn_dropout_rate,
                              dropout_rate=self.dropout_rate,
                              activation_fn=self.activation_fn,
-                             dtype=self.dtype,
-                             precision=self.precision,
-                             kernel_init=self.kernel_init)(
-                                 x, is_training=is_training)
+                             dtype=self.dtype)(x, is_training=is_training)
 
         output = nn.LayerNorm(dtype=self.dtype)(x)
         return output
@@ -87,25 +69,18 @@ class ViT(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
         assert self.embed_dim % self.num_heads == 0
 
-        x = PatchEmbedBlock(
-            patch_shape=self.patch_shape,
-            embed_dim=self.embed_dim,
-            dtype=self.dtype,
-            precision=self.precision,
-            kernel_init=self.kernel_init,
-        )(inputs)
+        x = PatchEmbedBlock(patch_shape=self.patch_shape,
+                            embed_dim=self.embed_dim,
+                            dtype=self.dtype)(inputs)
 
         b, l, _ = x.shape
         cls_shape = (1, 1, self.embed_dim)
-        cls_token = self.param('cls', initializers.zeros, cls_shape)
+        cls_token = self.param('cls', nn.initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
         x = jnp.concatenate([cls_token, x], axis=1)
 
@@ -115,17 +90,10 @@ class ViT(nn.Module):
                     attn_dropout_rate=self.attn_dropout_rate,
                     dropout_rate=self.dropout_rate,
                     activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(x, is_training=is_training)
+                    dtype=self.dtype)(x, is_training=is_training)
 
         cls_token = x[:, 0]
-        output = nn.Dense(
-            features=self.num_classes,
-            use_bias=True,
-            dtype=self.dtype,
-            kernel_init=initializers.zeros,
-            bias_init=self.bias_init,
-        )(cls_token)
+        output = nn.Dense(features=self.num_classes,
+                          dtype=self.dtype,
+                          kernel_init=nn.initializers.zeros)(cls_token)
         return output

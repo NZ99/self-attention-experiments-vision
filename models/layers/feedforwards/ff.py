@@ -1,11 +1,7 @@
+from functools import partial
 from typing import Callable
 
-from functools import partial
-
-from flax.linen import initializers
 from flax import linen as nn
-
-from jax.lax import Precision
 from jax import numpy as jnp
 
 
@@ -15,9 +11,6 @@ class FFBlock(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.normal(stddev=1e-6)
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -29,12 +22,8 @@ class FFBlock(nn.Module):
             hidden_ch = self.hidden_ch
         else:
             hidden_ch = max(1, int(self.expand_ratio * in_ch))
-        dense = partial(nn.Dense,
-                        use_bias=True,
-                        dtype=self.dtype,
-                        precision=self.precision,
-                        kernel_init=self.kernel_init,
-                        bias_init=self.bias_init)
+
+        dense = partial(nn.Dense, use_bias=True, dtype=self.dtype)
 
         x = dense(features=hidden_ch)(inputs)
         x = self.activation_fn(x)

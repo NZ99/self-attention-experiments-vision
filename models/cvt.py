@@ -1,11 +1,7 @@
 from typing import Callable, Tuple
 
 from jax import numpy as jnp
-from jax.nn import initializers
-from jax.lax import Precision
-
 from flax import linen as nn
-
 from einops import rearrange
 
 from models.layers import CvTSelfAttentionBlock, FFBlock
@@ -16,9 +12,6 @@ class ConvTokenEmbedBlock(nn.Module):
     kernel_size: int
     strides: int
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, **unused_kwargs):
@@ -27,10 +20,7 @@ class ConvTokenEmbedBlock(nn.Module):
                     kernel_size=(self.kernel_size, self.kernel_size),
                     strides=(self.strides, self.strides),
                     padding='SAME',
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(inputs)
+                    dtype=self.dtype)(inputs)
         x = rearrange(x, 'b H W c -> b (H W) c')
         output = nn.LayerNorm(dtype=self.dtype)(x)
         return output
@@ -46,9 +36,6 @@ class StageBlock(nn.Module):
     bn_epsilon: float = 1e-5
     expand_ratio: float = 4
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -57,21 +44,14 @@ class StageBlock(nn.Module):
                                   use_bias=self.use_bias,
                                   bn_momentum=self.bn_momentum,
                                   bn_epsilon=self.bn_epsilon,
-                                  dtype=self.dtype,
-                                  precision=self.precision,
-                                  kernel_init=self.kernel_init,
-                                  bias_init=self.bias_init)(
-                                      inputs, is_training=is_training)
+                                  dtype=self.dtype)(inputs,
+                                                    is_training=is_training)
         x = x + inputs
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
         y = FFBlock(expand_ratio=self.expand_ratio,
                     activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, is_training=is_training)
-
+                    dtype=self.dtype)(y, is_training=is_training)
         output = x + y
         return output
 
@@ -90,9 +70,6 @@ class Stage(nn.Module):
     expand_ratio: float = 4
     insert_cls: bool = False
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -100,16 +77,13 @@ class Stage(nn.Module):
         x = ConvTokenEmbedBlock(out_ch=self.embed_dim,
                                 kernel_size=self.embed_kernel_size,
                                 strides=self.embed_strides,
-                                dtype=self.dtype,
-                                precision=self.precision,
-                                kernel_init=self.kernel_init,
-                                bias_init=self.bias_init)(
-                                    inputs, is_training=is_training)
+                                dtype=self.dtype)(inputs,
+                                                  is_training=is_training)
 
         if self.insert_cls:
             b = x.shape[0]
             cls_shape = (1, 1, self.embed_dim)
-            cls_token = self.param('cls', initializers.zeros, cls_shape)
+            cls_token = self.param('cls', nn.initializers.zeros, cls_shape)
             cls_token = jnp.tile(cls_token, [b, 1, 1])
             x = jnp.concatenate([cls_token, x], axis=1)
 
@@ -122,10 +96,7 @@ class Stage(nn.Module):
                            bn_momentum=self.bn_momentum,
                            bn_epsilon=self.bn_epsilon,
                            expand_ratio=self.expand_ratio,
-                           dtype=self.dtype,
-                           precision=self.precision,
-                           kernel_init=self.kernel_init,
-                           bias_init=self.bias_init)(x, is_training=is_training)
+                           dtype=self.dtype)(x, is_training=is_training)
         output = x
         return output
 
@@ -144,9 +115,6 @@ class CvT(nn.Module):
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -163,10 +131,7 @@ class CvT(nn.Module):
                       bn_momentum=self.bn_momentum,
                       bn_epsilon=self.bn_epsilon,
                       expand_ratio=self.expand_ratio,
-                      dtype=self.dtype,
-                      precision=self.precision,
-                      kernel_init=self.kernel_init,
-                      bias_init=self.bias_init)(x, is_training=is_training)
+                      dtype=self.dtype)(x, is_training=is_training)
 
             l = x.shape[1]
             spatial_ch = int(jnp.sqrt(l))
@@ -184,16 +149,10 @@ class CvT(nn.Module):
                   bn_epsilon=self.bn_epsilon,
                   expand_ratio=self.expand_ratio,
                   insert_cls=True,
-                  dtype=self.dtype,
-                  precision=self.precision,
-                  kernel_init=self.kernel_init,
-                  bias_init=self.bias_init)(x, is_training=is_training)
+                  dtype=self.dtype)(x, is_training=is_training)
 
         cls_token = x[:, 0]
         output = nn.Dense(features=self.num_classes,
                           use_bias=True,
-                          dtype=self.dtype,
-                          precision=self.precision,
-                          kernel_init=initializers.zeros,
-                          bias_init=self.bias_init)(cls_token)
+                          dtype=self.dtype)(cls_token)
         return output

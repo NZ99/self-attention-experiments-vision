@@ -1,9 +1,8 @@
 from typing import Callable
 
+from flax import linen as nn
 import jax.numpy as jnp
 from einops import rearrange, repeat
-from flax.linen import initializers
-from flax import linen as nn
 
 
 def rotate_every_two(x):
@@ -32,7 +31,6 @@ class FixedPositionalEmbedding(nn.Module):
 
         freqs = jnp.einsum('i , j -> i j', t, inv_freq)
         emb = jnp.concatenate([freqs, freqs], axis=-1)
-
         return emb
 
 
@@ -48,8 +46,7 @@ class RotaryPositionalEmbedding(FixedPositionalEmbedding):
 
 
 class AddAbsPosEmbed(nn.Module):
-
-    embed_init: Callable = initializers.normal(stddev=0.02)
+    embed_init: Callable = nn.initializers.normal(stddev=0.02)
 
     @nn.compact
     def __call__(self, inputs):

@@ -1,8 +1,6 @@
 from typing import Callable, Tuple
 
 import jax.numpy as jnp
-from jax.nn import initializers
-from jax.lax import Precision
 import flax.linen as nn
 
 from models.layers import PatchEmbedBlock, AddAbsPosEmbed, AttentionBlock, SelfAttentionBlock
@@ -26,9 +24,6 @@ class EncoderBlock(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -37,11 +32,7 @@ class EncoderBlock(nn.Module):
                                talking_heads=True,
                                attn_dropout_rate=self.attn_dropout_rate,
                                out_dropout_rate=self.dropout_rate,
-                               dtype=self.dtype,
-                               precision=self.precision,
-                               kernel_init=self.kernel_init,
-                               bias_init=self.bias_init)(
-                                   x, is_training=is_training)
+                               dtype=self.dtype)(x, is_training=is_training)
         x = LayerScaleBlock(eps=self.layerscale_eps,
                             dtype=self.dtype)(x, is_training=is_training)
         x = StochasticDepthBlock(drop_rate=self.stoch_depth_rate)(
@@ -52,10 +43,7 @@ class EncoderBlock(nn.Module):
         y = FFBlock(expand_ratio=self.expand_ratio,
                     dropout_rate=self.dropout_rate,
                     activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, is_training=is_training)
+                    dtype=self.dtype)(y, is_training=is_training)
         y = LayerScaleBlock(eps=self.layerscale_eps,
                             dtype=self.dtype)(y, is_training=is_training)
         y = StochasticDepthBlock(drop_rate=self.stoch_depth_rate)(
@@ -75,9 +63,6 @@ class Encoder(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -91,13 +76,8 @@ class Encoder(nn.Module):
                              dropout_rate=self.dropout_rate,
                              stoch_depth_rate=self.stoch_depth_rate,
                              layerscale_eps=self.layerscale_eps,
-                             attn_class=SelfAttentionBlock,
                              activation_fn=self.activation_fn,
-                             dtype=self.dtype,
-                             precision=self.precision,
-                             kernel_init=self.kernel_init,
-                             bias_init=self.bias_init)(x,
-                                                       is_training=is_training)
+                             dtype=self.dtype)(x, is_training=is_training)
 
         output = x
         return output
@@ -112,9 +92,6 @@ class CAEncoderBlock(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, cls_token, is_training: bool):
@@ -123,11 +100,8 @@ class CAEncoderBlock(nn.Module):
         x = ClassSelfAttentionBlock(num_heads=self.num_heads,
                                     attn_dropout_rate=self.attn_dropout_rate,
                                     out_dropout_rate=self.dropout_rate,
-                                    dtype=self.dtype,
-                                    precision=self.precision,
-                                    kernel_init=self.kernel_init,
-                                    bias_init=self.bias_init)(
-                                        x, is_training=is_training)
+                                    dtype=self.dtype)(x,
+                                                      is_training=is_training)
         x = LayerScaleBlock(eps=self.layerscale_eps,
                             dtype=self.dtype)(x, is_training=is_training)
         x = StochasticDepthBlock(drop_rate=self.stoch_depth_rate)(
@@ -138,10 +112,7 @@ class CAEncoderBlock(nn.Module):
         y = FFBlock(expand_ratio=self.expand_ratio,
                     dropout_rate=self.dropout_rate,
                     activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init,
-                    bias_init=self.bias_init)(y, is_training=is_training)
+                    dtype=self.dtype)(y, is_training=is_training)
         y = LayerScaleBlock(eps=self.layerscale_eps,
                             dtype=self.dtype)(y, is_training=is_training)
         y = StochasticDepthBlock(drop_rate=self.stoch_depth_rate)(
@@ -165,9 +136,6 @@ class CaiT(nn.Module):
     dropout_rate: float = 0.
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform
-    bias_init: Callable = initializers.zeros
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -187,14 +155,12 @@ class CaiT(nn.Module):
                     dropout_rate=self.dropout_rate,
                     stoch_depth_rate=self.stoch_depth_rate,
                     layerscale_eps=self.layerscale_eps,
-                    activation_fn=self.activation_fn,
-                    dtype=self.dtype,
-                    precision=self.precision,
-                    kernel_init=self.kernel_init)(x, is_training=is_training)
+                    activation_fn=self.activation_fn)(x,
+                                                      is_training=is_training)
 
         b = x.shape[0]
         cls_shape = (1, 1, self.embed_dim)
-        cls_token = self.param('cls', initializers.zeros, cls_shape)
+        cls_token = self.param('cls', nn.initializers.zeros, cls_shape)
         cls_token = jnp.tile(cls_token, [b, 1, 1])
 
         for _ in range(self.num_layers_token_only):
@@ -205,9 +171,7 @@ class CaiT(nn.Module):
                                        stoch_depth_rate=self.stoch_depth_rate,
                                        layerscale_eps=self.layerscale_eps,
                                        activation_fn=self.activation_fn,
-                                       dtype=self.dtype,
-                                       precision=self.precision,
-                                       kernel_init=self.kernel_init)(
+                                       dtype=self.dtype)(
                                            x,
                                            cls_token,
                                            is_training=is_training)
@@ -216,11 +180,8 @@ class CaiT(nn.Module):
         x = nn.LayerNorm(dtype=self.dtype)(x)
 
         cls_token = x[:, 0]
-        output = nn.Dense(
-            features=self.num_classes,
-            use_bias=True,
-            dtype=self.dtype,
-            kernel_init=initializers.zeros,
-            bias_init=self.bias_init,
-        )(cls_token)
+        output = nn.Dense(features=self.num_classes,
+                          use_bias=True,
+                          dtype=self.dtype,
+                          kernel_init=nn.initializers.zeros)(cls_token)
         return output

@@ -6,7 +6,6 @@ from jax.nn import initializers
 from jax.lax import Precision
 
 from flax import linen as nn
-from flax import struct
 
 from einops import rearrange
 
@@ -26,7 +25,7 @@ class BottleneckResNetBlock(nn.Module):
     filters: int
     conv: ModuleDef
     norm: ModuleDef
-    strides: Tuple[int, int]
+    strides: Tuple[int]
     se_ratio: float = 0.0625
     projection_factor: int = 4
     activation_fn: Callable = nn.activation.swish
