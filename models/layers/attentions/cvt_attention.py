@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional, Tuple
 
 from flax import linen as nn
 from flax.linen import initializers
@@ -64,7 +64,7 @@ class CvTAttentionBlock(nn.Module):
     attn_dropout_rate: float = 0.
     out_dropout_rate: float = 0.
     kernel_size: int = 3
-    strides: Sequence[int] = [1, 2, 2]
+    strides: Tuple[int] = (1, 2, 2)
     use_bias: bool = False
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
@@ -153,38 +153,8 @@ class CvTAttentionBlock(nn.Module):
         return output
 
 
-class CvTSelfAttentionBlock(nn.Module):
-    num_heads: int
-    head_ch: Optional[int] = None
-    out_ch: Optional[int] = None
-    talking_heads: bool = False
-    attn_dropout_rate: float = 0.
-    out_dropout_rate: float = 0.
-    kernel_size: int = 3
-    strides: Sequence[int] = [1, 2, 2]
-    use_bias: bool = False
-    bn_momentum: float = 0.9
-    bn_epsilon: float = 1e-5
-    dtype: jnp.dtype = jnp.float32
-    precision: Precision = Precision.DEFAULT
-    kernel_init: Callable = initializers.kaiming_uniform()
-    bias_init: Callable = initializers.zeros
+class CvTSelfAttentionBlock(CvTAttentionBlock):
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
-        return CvTAttentionBlock(num_heads=self.num_heads,
-                                 head_ch=self.head_ch,
-                                 out_ch=self.out_ch,
-                                 talking_heads=self.talking_heads,
-                                 attn_drop_rate=self.attn_drop_rate,
-                                 out_drop_rate=self.out_drop_rate,
-                                 kernel_size=self.kernel_size,
-                                 strides=self.strides,
-                                 bn_momentum=self.bn_momentum,
-                                 bn_epsilon=self.bn_epsilon,
-                                 use_bias=self.use_bias,
-                                 dtype=self.dtype,
-                                 precision=self.precision,
-                                 kernel_init=self.kernel_init,
-                                 bias_init=self.bias_init)(inputs, inputs,
-                                                           is_training)
+        return super().__call__(inputs, inputs, is_training)

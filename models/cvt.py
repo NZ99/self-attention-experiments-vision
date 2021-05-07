@@ -1,4 +1,4 @@
-from typing import Callable, Sequence
+from typing import Callable, Tuple
 
 from jax import numpy as jnp
 from jax.nn import initializers
@@ -132,12 +132,12 @@ class Stage(nn.Module):
 
 class CvT(nn.Module):
     num_classes: int
-    stage_sizes: Sequence[int]
-    num_heads: Sequence[int]
-    embed_dim: Sequence[int]
-    embed_kernel_size: Sequence[int] = [7, 3, 3]
-    embed_strides: Sequence[int] = [4, 2, 2]
-    sa_kernel_size: Sequence[int] = [3, 3, 3]
+    stage_sizes: Tuple[int]
+    num_heads: Tuple[int]
+    embed_dim: Tuple[int]
+    embed_kernel_size: Tuple[int] = [7, 3, 3]
+    embed_strides: Tuple[int] = [4, 2, 2]
+    sa_kernel_size: Tuple[int] = [3, 3, 3]
     use_bias: bool = False
     expand_ratio: float = 4
     activation_fn = nn.activation.gelu

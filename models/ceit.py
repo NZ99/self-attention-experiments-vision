@@ -118,7 +118,7 @@ class CeiT(nn.Module):
     num_layers: int
     num_heads: int
     embed_dim: int
-    patch_shape: Tuple[int, int] = (4, 4)
+    patch_shape: Tuple[int] = (4, 4)
     num_ch: int = 32
     conv_kernel_size: int = 7
     conv_stride: int = 2

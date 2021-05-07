@@ -81,7 +81,7 @@ class ViT(nn.Module):
     num_layers: int
     num_heads: int
     embed_dim: int
-    patch_shape: Tuple[int, int]
+    patch_shape: Tuple[int]
     expand_ratio: float = 4
     dropout_rate: float = 0.
     attn_dropout_rate: float = 0.

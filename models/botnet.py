@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Tuple, Callable, Sequence
+from typing import Any, Tuple, Callable
 
 from jax import numpy as jnp
 from jax.nn import initializers
@@ -259,7 +259,7 @@ class BoTNet(nn.Module):
         config: BoTNet configuration
     """
     num_classes: int
-    stage_sizes: Sequence[int]
+    stage_sizes: Tuple[int]
     stride_one: bool = True
     se_ratio: float = 0.0625
     activation_fn: ModuleDef = nn.swish
