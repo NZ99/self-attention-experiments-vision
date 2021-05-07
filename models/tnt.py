@@ -10,8 +10,8 @@ from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbe
 
 
 class PixelEmbedBlock(nn.Module):
-    patch_shape: Tuple[int, int]
-    transformed_patch_shape: Tuple[int, int]
+    patch_shape: Tuple[int]
+    transformed_patch_shape: Tuple[int]
     embed_dim: int
     use_bias = False
     dtype: jnp.dtype = jnp.float32
@@ -164,12 +164,12 @@ class Encoder(nn.Module):
 
 class TNT(nn.Module):
     num_layers: int
-    patch_shape: Tuple[int, int]
-    transformed_patch_shape: Tuple[int, int]
     inner_num_heads: int
     outer_num_heads: int
     inner_embed_dim: int
     outer_embed_dim: int
+    patch_shape: Tuple[int] = (16, 16)
+    transformed_patch_shape: Tuple[int] = (4, 4)
     inner_expand_ratio: float = 4
     outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.

@@ -135,9 +135,9 @@ class CvT(nn.Module):
     stage_sizes: Tuple[int]
     num_heads: Tuple[int]
     embed_dim: Tuple[int]
-    embed_kernel_size: Tuple[int] = [7, 3, 3]
-    embed_strides: Tuple[int] = [4, 2, 2]
-    sa_kernel_size: Tuple[int] = [3, 3, 3]
+    embed_kernel_size: Tuple[int] = (7, 3, 3)
+    embed_strides: Tuple[int] = (4, 2, 2)
+    sa_kernel_size: Tuple[int] = (3, 3, 3)
     use_bias: bool = False
     expand_ratio: float = 4
     activation_fn = nn.activation.gelu

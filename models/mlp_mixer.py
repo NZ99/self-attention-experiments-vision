@@ -47,8 +47,8 @@ class MLPMixer(nn.Module):
     num_layers: int
     embed_dim: int
     patch_shape: Tuple[int, int]
-    tokens_expand_ratio: float
-    channels_expand_ratio: float
+    tokens_expand_ratio: float = 0.5
+    channels_expand_ratio: float = 4
     activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
     precision: Precision = Precision.DEFAULT
