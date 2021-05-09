@@ -9,6 +9,7 @@ class PatchEmbedBlock(nn.Module):
 
     patch_shape: Tuple[int]
     embed_dim: int
+    use_bias: bool = False
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -20,6 +21,6 @@ class PatchEmbedBlock(nn.Module):
                       ph=ph,
                       pw=pw)
         output = nn.Dense(features=self.embed_dim,
-                          use_bias=False,
+                          use_bias=self.use_bias,
                           dtype=self.dtype)(x)
         return output

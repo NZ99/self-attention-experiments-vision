@@ -149,5 +149,8 @@ class CeiT(nn.Module):
                                               cls_tokens,
                                               is_training=is_training)
         cls = cls_tokens[:, -1]
-        output = nn.Dense(features=self.num_classes, dtype=self.dtype)(cls)
+        output = nn.Dense(features=self.num_classes,
+                          use_bias=True,
+                          dtype=self.dtype,
+                          kernel_init=nn.initializers.zeros)(cls)
         return output

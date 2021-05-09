@@ -16,6 +16,7 @@ class ConvProjectionBlock(nn.Module):
     use_bias: bool = True
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
+    dtype: jnp.dtype = jnp.float32
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
@@ -39,15 +40,6 @@ class ConvProjectionBlock(nn.Module):
         return output
 
 
-def zero_pad_and_reshape(inputs):
-    assert inputs.ndim == 3
-    _, l, in_ch = inputs.shape
-    spatial_ch = int(jnp.ceil(jnp.sqrt(l)))
-    inputs = jnp.pad(inputs, ((0, 0), (0, spatial_ch**2 - l), (0, 0)))
-    inputs = rearrange(inputs, 'b (H W) c -> b H W c', W=spatial_ch)
-    return inputs
-
-
 class CvTAttentionBlock(nn.Module):
     num_heads: int
     head_ch: Optional[int] = None
@@ -64,6 +56,8 @@ class CvTAttentionBlock(nn.Module):
 
     @nn.compact
     def __call__(self, inputs_q, inputs_kv, is_training: bool):
+        assert inputs_q.ndim == 4
+        assert inputs_kv.ndim == 4
         assert len(self.strides) == 3
         q_strides, k_strides, v_strides = self.strides
 
@@ -71,9 +65,6 @@ class CvTAttentionBlock(nn.Module):
         assert in_ch % self.num_heads == 0
         head_ch = self.head_ch or int(in_ch / self.num_heads)
         out_ch = self.out_ch or in_ch
-
-        inputs_q = zero_pad_and_reshape(inputs_q)
-        inputs_kv = zero_pad_and_reshape(inputs_kv)
 
         conv_proj = partial(ConvProjectionBlock,
                             out_ch=self.num_heads * head_ch,

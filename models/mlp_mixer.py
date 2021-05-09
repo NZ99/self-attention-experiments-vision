@@ -45,6 +45,7 @@ class MLPMixer(nn.Module):
     def __call__(self, inputs, is_training: bool):
         x = PatchEmbedBlock(patch_shape=self.patch_shape,
                             embed_dim=self.embed_dim,
+                            use_bias=True,
                             dtype=self.dtype)(inputs)
 
         for _ in range(self.num_layers):

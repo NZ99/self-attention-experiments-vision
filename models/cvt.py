@@ -7,6 +7,15 @@ from einops import rearrange
 from models.layers import CvTSelfAttentionBlock, FFBlock
 
 
+def zero_pad_and_reshape(inputs):
+    assert inputs.ndim == 3
+    _, l, in_ch = inputs.shape
+    spatial_ch = int(jnp.ceil(jnp.sqrt(l)))
+    inputs = jnp.pad(inputs, ((0, 0), (0, spatial_ch**2 - l), (0, 0)))
+    inputs = rearrange(inputs, 'b (H W) c -> b H W c', W=spatial_ch)
+    return inputs
+
+
 class ConvTokenEmbedBlock(nn.Module):
     out_ch: int
     kernel_size: int
@@ -39,6 +48,8 @@ class StageBlock(nn.Module):
 
     @nn.compact
     def __call__(self, inputs, is_training: bool):
+        inputs = zero_pad_and_reshape(inputs)
+
         x = CvTSelfAttentionBlock(num_heads=self.num_heads,
                                   kernel_size=self.kernel_size,
                                   use_bias=self.use_bias,
@@ -46,7 +57,8 @@ class StageBlock(nn.Module):
                                   bn_epsilon=self.bn_epsilon,
                                   dtype=self.dtype)(inputs,
                                                     is_training=is_training)
-        x = x + inputs
+
+        x = x + rearrange(inputs, 'b h w d -> b (h w) d')
 
         y = nn.LayerNorm(dtype=self.dtype)(x)
         y = FFBlock(expand_ratio=self.expand_ratio,
@@ -111,7 +123,7 @@ class CvT(nn.Module):
     sa_kernel_size: Tuple[int] = (3, 3, 3)
     use_bias: bool = False
     expand_ratio: float = 4
-    activation_fn = nn.activation.gelu
+    activation_fn: Callable = nn.activation.gelu
     bn_momentum: float = 0.9
     bn_epsilon: float = 1e-5
     dtype: jnp.dtype = jnp.float32
@@ -137,12 +149,12 @@ class CvT(nn.Module):
             spatial_ch = int(jnp.sqrt(l))
             x = rearrange(x, 'b (H W) c -> b H W c', H=spatial_ch)
 
-        x = Stage(size=self.stage_sizes[i],
-                  num_heads=self.num_heads[i],
-                  embed_dim=self.embed_dim[i],
-                  embed_kernel_size=self.embed_kernel_size[i],
-                  embed_strides=self.embed_strides[i],
-                  sa_kernel_size=self.sa_kernel_size[i],
+        x = Stage(size=self.stage_sizes[-1],
+                  num_heads=self.num_heads[-1],
+                  embed_dim=self.embed_dim[-1],
+                  embed_kernel_size=self.embed_kernel_size[-1],
+                  embed_strides=self.embed_strides[-1],
+                  sa_kernel_size=self.sa_kernel_size[-1],
                   use_bias=self.use_bias,
                   activation_fn=self.activation_fn,
                   bn_momentum=self.bn_momentum,
@@ -154,5 +166,6 @@ class CvT(nn.Module):
         cls_token = x[:, 0]
         output = nn.Dense(features=self.num_classes,
                           use_bias=True,
-                          dtype=self.dtype)(cls_token)
+                          dtype=self.dtype,
+                          kernel_init=nn.initializers.zeros)(cls_token)
         return output
