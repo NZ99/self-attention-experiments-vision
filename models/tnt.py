@@ -1,17 +1,17 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Callable
 
 import flax.linen as nn
 import jax.numpy as jnp
 from einops import rearrange
 
-from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbedBlock
+from models.layers import AddAbsPosEmbed, SelfAttentionBlock, FFBlock, PatchEmbedBlock
 
 
 class PixelEmbedBlock(nn.Module):
     patch_shape: Tuple[int]
     transformed_patch_shape: Tuple[int]
     embed_dim: int
-    use_bias = False
+    use_bias: bool = True
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -24,7 +24,7 @@ class PixelEmbedBlock(nn.Module):
                       p1=self.patch_shape[0],
                       p2=self.patch_shape[0])
         x = rearrange(x,
-                      '. (p1 t1) (p2 t2) c -> . (p1 p2) (c t1 t2)',
+                      'n (p1 t1) (p2 t2) c -> n (p1 p2) (c t1 t2)',
                       t1=self.transformed_patch_shape[0],
                       t2=self.transformed_patch_shape[1])
         output = nn.Dense(self.embed_dim,
@@ -44,7 +44,7 @@ class Inner2OuterBlock(nn.Module):
 
         x = rearrange(pixel_inputs, '... n d -> ... (n d)')
         x = nn.Dense(features=out_ch, dtype=self.dtype)(x)
-        x = rearrange(x, '(b h w) d -> b (h w) d', b=b)
+        x = rearrange(x, '(b l) d -> b l d', b=b)
         x = jnp.pad(x, ((0, 0), (1, 0), (0, 0)))
         output = x + patch_inputs
         return output
@@ -57,7 +57,7 @@ class EncoderBlock(nn.Module):
     outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
-    activation_fn = nn.activation.gelu
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -75,7 +75,7 @@ class EncoderBlock(nn.Module):
                           dtype=self.dtype)(inner_y, is_training=is_training)
         inner_output = inner_x + inner_y
 
-        outer_x = Inner2OuterBlock(dtype=self.dtype)(inner_output, patch_inputs)
+        outer_x = Inner2OuterBlock(dtype=self.dtype)(patch_inputs, inner_output)
 
         outer_x = nn.LayerNorm(dtype=self.dtype)(outer_x)
         outer_x = SelfAttentionBlock(num_heads=self.outer_num_heads,
@@ -101,7 +101,7 @@ class Encoder(nn.Module):
     outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
-    activation_fn = nn.activation.gelu
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -113,13 +113,16 @@ class Encoder(nn.Module):
                 attn_dropout_rate=self.attn_dropout_rate,
                 dropout_rate=self.dropout_rate,
                 activation_fn=self.activation_fn,
-                dtype=self.dtype)(patch_embeddings, pixel_embeddings)
+                dtype=self.dtype)(patch_embeddings,
+                                  pixel_embeddings,
+                                  is_training=is_training)
 
-            output = patch_embeddings
-            return output
+        output = patch_embeddings
+        return output
 
 
 class TNT(nn.Module):
+    num_classes: int
     num_layers: int
     inner_num_heads: int
     outer_num_heads: int
@@ -131,7 +134,7 @@ class TNT(nn.Module):
     outer_expand_ratio: float = 4
     attn_dropout_rate: float = 0.
     dropout_rate: float = 0.
-    activation_fn = nn.activation.gelu
+    activation_fn: Callable = nn.activation.gelu
     dtype: jnp.dtype = jnp.float32
 
     @nn.compact
@@ -141,10 +144,10 @@ class TNT(nn.Module):
             transformed_patch_shape=self.transformed_patch_shape,
             embed_dim=self.inner_embed_dim,
             dtype=self.dtype)(inputs)
-        pixel_embeddings = AddAbsPosEmbed()(pixel_embeddings)
 
         patch_embeddings = PatchEmbedBlock(patch_shape=self.patch_shape,
                                            embed_dim=self.outer_embed_dim,
+                                           use_bias=True,
                                            dtype=self.dtype)(inputs)
 
         b, l, _ = patch_embeddings.shape
@@ -154,7 +157,9 @@ class TNT(nn.Module):
         patch_embeddings = jnp.concatenate([cls_token, patch_embeddings],
                                            axis=1)
 
+        pixel_embeddings = AddAbsPosEmbed()(pixel_embeddings)
         patch_embeddings = AddAbsPosEmbed()(patch_embeddings)
+
         patch_embeddings = nn.Dropout(rate=self.dropout_rate)(
             patch_embeddings, deterministic=not is_training)
 
