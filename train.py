@@ -19,46 +19,16 @@ def one_hot(x):
     return jax.nn.one_hot(x, num_classes=1000)
 
 
-def flattened_traversal(fn):
-
-    def mask(data):
-        flat = traverse_util.flatten_dict(data)
-        return traverse_util.unflatten_dict(
-            {k: fn(k, v) for k, v in flat.items()})
-
-    return mask
-
-
-def initialized(rng, img_size, model):
-    input_shape = (1, img_size, img_size, 3)
-
-    @jax.jit
-    def init(*args):
-        return model.init(*args)
-
-    variables = init({'params': rng}, jnp.ones(input_shape, jnp.bfloat16))
-    return variables['params']
-
-
 def create_train_state(rng, model, img_size, lr_schedule_fn, weight_decay,
                        max_norm):
 
-    weight_chain = optax.chain(optax.clip_by_global_norm(max_norm),
-                               optax.scale_by_adam(),
-                               optax.additive_weight_decay(weight_decay),
-                               optax.scale_by_schedule(lr_schedule_fn))
-    rest_chain = optax.chain(optax.clip_by_global_norm(max_norm),
-                             optax.scale_by_adam(),
-                             optax.scale_by_schedule(lr_schedule_fn))
-    tx = optax.chain(
-        optax.masked(
-            weight_chain,
-            mask=flattened_traversal(lambda path, _: path[-1] == 'kernel')),
-        optax.masked(
-            rest_chain,
-            mask=flattened_traversal(lambda path, _: path[-1] != 'kernel')))
+    tx = optax.chain(optax.clip_by_global_norm(max_norm), optax.scale_by_adam(),
+                     optax.additive_weight_decay(weight_decay),
+                     optax.scale_by_schedule(lr_schedule_fn))
 
-    params = initialized(rng, img_size, model)
+    params = model.init(rng,
+                        jax.numpy.ones((1, img_size, img_size, 3)),
+                        is_training=False)
 
     train_state = TrainState.create(
         apply_fn=model.apply,
@@ -90,7 +60,7 @@ def build_train_input(data_dir, batch_size, img_size, augmentation):
 
 def build_eval_input(data_dir, batch_size, img_size):
     bs_per_device = (batch_size // jax.local_device_count())
-    split = input_pipeline.Split.test
+    split = input_pipeline.Split.TEST
     eval_preproc = 'crop_resize'
     return input_pipeline.load(
         split,
