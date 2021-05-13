@@ -16,33 +16,6 @@ import jax
 from jax import numpy as jnp
 
 
-def reduce_fn(x, mode):
-    """Reduce fn for various losses."""
-    if mode == 'none' or mode is None:
-        return jnp.asarray(x)
-    elif mode == 'sum':
-        return jnp.sum(x)
-    elif mode == 'mean':
-        return jnp.mean(x)
-    else:
-        raise ValueError('Unsupported reduction option.')
-
-
-def softmax_cross_entropy(logits, labels, reduction='sum'):
-    """Computes softmax cross entropy given logits and one-hot class labels.
-  Args:
-    logits: Logit output values.
-    labels: Ground truth one-hot-encoded labels.
-    reduction: Type of reduction to apply to loss.
-  Returns:
-    Loss value. If `reduction` is `none`, this has the same shape as `labels`;
-    otherwise, it is scalar.
-  Raises:
-    ValueError: If the type of `reduction` is unsupported.
-  """
-    loss = -jnp.sum(labels * jax.nn.log_softmax(logits), axis=-1)
-    return reduce_fn(loss, reduction)
-
 
 def topk_correct(logits, labels, mask=None, prefix='', topk=(1, 5)):
     """Calculate top-k error for multiple k values."""
@@ -62,15 +35,3 @@ def topk_correct(logits, labels, mask=None, prefix='', topk=(1, 5)):
 def any_in(prediction, target):
     """For each row in a and b, checks if any element of a is in b."""
     return jnp.isin(prediction, target)
-
-
-def to_bf16(x):
-    if x.dtype == jnp.float32:
-        return x.astype(jnp.bfloat16)
-    return x
-
-
-def from_bf16(x):
-    if x.dtype == jnp.bfloat16:
-        return x.astype(jnp.float32)
-    return x

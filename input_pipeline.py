@@ -24,10 +24,10 @@ from typing import Generator, Mapping, Optional, Sequence, Text, Tuple
 import jax
 import jax.numpy as jnp
 import numpy as np
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 import tensorflow_datasets as tfds
 import tensorflow_probability as tfp
-from vit_variants import autoaugment
+import autoaugment
 
 Batch = Mapping[Text, np.ndarray]
 MEAN_RGB = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -64,6 +64,7 @@ class Split(enum.Enum):
 
 def load(
     split: Split,
+    data_dir: str,
     *,
     is_training: bool,
     batch_dims: Sequence[int],
@@ -121,6 +122,7 @@ def load(
 
         ds = tfds.load('imagenet2012:5.*.*',
                        split=tfds_split,
+                       data_dir=data_dir,
                        decoders={'image': tfds.decode.SkipDecoding()})
     else:
         raise ValueError(

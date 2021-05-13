@@ -5,3 +5,4 @@ from models.vit import ViT
 from models.cait import CaiT
 from models.tnt import TNT
 from models.mlp_mixer import MLPMixer
+from models.create_model import create_model
