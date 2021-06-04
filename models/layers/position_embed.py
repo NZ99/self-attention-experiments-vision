@@ -25,7 +25,7 @@ class FixedPositionalEmbedding(nn.Module):
     @nn.compact
     def __call__(self, inputs, seq_dim=0):
         dim = inputs.shape[-1]
-        intervals = jnp.arange(start=0, stop=self.dim, step=2, dtype=self.dtype)
+        intervals = jnp.arange(start=0, stop=dim, step=2, dtype=self.dtype)
         inv_freq = 1. / (10e4**intervals / dim)
         t = jnp.arange(inputs.shape[seq_dim], dtype=self.dtype)
 
