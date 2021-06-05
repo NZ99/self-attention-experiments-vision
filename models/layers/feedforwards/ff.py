@@ -1,34 +1,40 @@
 from functools import partial
-from typing import Callable
+from typing import Callable, Optional
 
-from flax import linen as nn
-from jax import numpy as jnp
+import jax
+import haiku as hk
 
 
-class FFBlock(nn.Module):
-    expand_ratio: float = None
-    hidden_ch: int = None
-    dropout_rate: float = 0.
-    activation_fn: Callable = nn.activation.gelu
-    dtype: jnp.dtype = jnp.float32
+class FFBlock(hk.Module):
 
-    @nn.compact
-    def __call__(self, inputs, is_training: bool):
-        in_ch = inputs.shape[-1]
-        if self.expand_ratio is None:
-            if self.hidden_ch is None:
+    def __init__(self,
+                 in_ch: int,
+                 out_ch: Optional[int] = None,
+                 expand_ratio: Optional[float] = None,
+                 hidden_ch: Optional[int] = None,
+                 dropout_rate: float = 0.,
+                 activation_fn: Callable = jax.nn.gelu):
+
+        if expand_ratio is None:
+            if hidden_ch is None:
                 raise ValueError(
                     'Must provide one of expand_ratio or hidden_ch')
-            hidden_ch = self.hidden_ch
+            self.hidden_ch = hidden_ch
         else:
-            hidden_ch = max(1, int(self.expand_ratio * in_ch))
+            self.hidden_ch = max(1, int(expand_ratio * in_ch))
+        self.out_ch = out_ch if out_ch else in_ch
+        self.dropout_rate = dropout_rate
+        self.activation_fn = activation_fn
+        self.to_hidden = hk.Linear(self.hidden_ch, with_bias=True)
+        self.to_out = hk.Linear(self.out_ch, with_bias=True)
 
-        dense = partial(nn.Dense, use_bias=True, dtype=self.dtype)
+    def __call__(self, inputs, is_training: bool):
 
-        x = dense(features=hidden_ch)(inputs)
+        x = self.to_hidden(inputs)
         x = self.activation_fn(x)
-        x = nn.Dropout(rate=self.dropout_rate, deterministic=not is_training)(x)
-        x = dense(features=in_ch)(x)
-        output = nn.Dropout(rate=self.dropout_rate,
-                            deterministic=not is_training)(x)
-        return output
+        if is_training:
+            x = hk.dropout(hk.next_rng_key(), self.dropout_rate, x)
+        x = self.to_out(x)
+        if is_training:
+            x = hk.dropout(hk.next_rng_key(), self.dropout_rat, x)
+        return x
