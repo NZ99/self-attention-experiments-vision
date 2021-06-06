@@ -1,26 +1,24 @@
 from typing import Tuple
 
-from flax import linen as nn
-from jax import numpy as jnp
+import haiku as hk
 from einops import rearrange
 
 
-class PatchEmbedBlock(nn.Module):
+class PatchEmbedBlock(hk.Module):
 
-    patch_shape: Tuple[int]
-    embed_dim: int
-    use_bias: bool = False
-    dtype: jnp.dtype = jnp.float32
+    def __init__(self,
+                 patch_shape: Tuple[int, int],
+                 embed_dim: int,
+                 use_bias: bool = False):
+        self.ph, self.pw = patch_shape
+        self.embed_dim = embed_dim
+        self.use_bias = use_bias
+        self.to_embed = hk.Linear(embed_dim, use_bias=self.use_bias)
 
-    @nn.compact
-    def __call__(self, inputs, *unused_args, **unused_kwargs):
-        ph, pw = self.patch_shape
-
+    def __call__(self, inputs):
         x = rearrange(inputs,
                       'b (h ph) (w pw) c -> b (h w) (ph pw c)',
-                      ph=ph,
-                      pw=pw)
-        output = nn.Dense(features=self.embed_dim,
-                          use_bias=self.use_bias,
-                          dtype=self.dtype)(x)
-        return output
+                      ph=self.ph,
+                      pw=self.pw)
+        x = self.to_embed(x)
+        return x

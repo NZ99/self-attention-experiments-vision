@@ -1,74 +1,87 @@
-from functools import partial
 from typing import Optional
 
-from flax import linen as nn
+import haiku as hk
+import jax
 from jax import numpy as jnp
+from einops import rearrange
 
 from models.layers.attentions import TalkingHeadsBlock
 
 
-class AttentionBlock(nn.Module):
-    num_heads: int
-    head_ch: Optional[int] = None
-    out_ch: Optional[int] = None
-    talking_heads: bool = False
-    attn_dropout_rate: float = 0.
-    out_dropout_rate: float = 0.
-    use_bias: bool = False
-    dtype: jnp.dtype = jnp.float32
+class AttentionBlock(hk.Module):
 
-    @nn.compact
+    def __init__(self,
+                 in_ch: int,
+                 out_ch: Optional[int] = None,
+                 num_heads: Optional[int] = None,
+                 head_ch: Optional[int] = None,
+                 talking_heads: bool = False,
+                 attn_drop_rate: float = 0.,
+                 out_drop_rate: float = 0.,
+                 use_bias: bool = False):
+
+        self.in_ch = in_ch
+        self.out_ch = out_ch if out_ch else in_ch
+
+        if num_heads is None:
+            if head_ch is None:
+                raise ValueError('Must provide one of num_heads or head_ch')
+            self.head_ch = head_ch
+            self.num_heads = self.in_ch // head_ch
+        else:
+            self.head_ch = self.in_ch // num_heads
+            self.num_heads = num_heads
+
+        self.talking_heads = talking_heads
+
+        if self.talking_heads:
+            self.pre_softmax = TalkingHeadsBlock(num_heads=self.num_heads)
+            self.post_softmax = TalkingHeadsBlock(num_heads=self.num_heads)
+
+        self.attn_drop_rate = attn_drop_rate
+        self.out_drop_rate = out_drop_rate
+
+        self.to_q = hk.Linear(self.num_heads * self.head_ch, with_bias=use_bias)
+        self.to_k = hk.Linear(self.num_heads * self.head_ch, with_bias=use_bias)
+        self.to_v = hk.Linear(self.num_heads * self.head_ch, with_bias=use_bias)
+
+        self.to_out = hk.Linear(self.out_ch, with_bias=use_bias)
+
     def __call__(self, inputs_q, inputs_kv, is_training: bool):
         assert inputs_q.ndim == inputs_kv.ndim == 3
 
-        in_ch = inputs_q.shape[-1]
-        assert in_ch % self.num_heads == 0
-        head_ch = self.head_ch or int(in_ch / self.num_heads)
-        out_ch = self.out_ch or in_ch
+        q = self.to_q(inputs_q)
+        k = self.to_k(inputs_kv)
+        v = self.to_v(inputs_kv)
 
-        dense = partial(nn.DenseGeneral,
-                        axis=-1,
-                        features=(self.num_heads, head_ch),
-                        use_bias=self.use_bias,
-                        dtype=self.dtype)
+        q = rearrange(q, 'b l (h d) -> b h l d', h=self.num_heads)
+        k = rearrange(k, 'b l (h d) -> b h l d', h=self.num_heads)
+        v = rearrange(v, 'b l (h d) -> b h l d', h=self.num_heads)
 
-        query = dense(name='queries')(inputs_q)
-        key = dense(name='keys')(inputs_kv)
-        value = dense(name='values')(inputs_kv)
+        q = q / jnp.sqrt(self.head_ch)
 
-        query = query / jnp.sqrt(head_ch)
-
-        attn_weights = jnp.einsum('... q h d, ... k h d -> ... h q k', query,
-                                  key)
+        weights = jnp.einsum('b h l d, b h k d -> b h l k', q, k)
 
         if self.talking_heads:
-            attn_weights = TalkingHeadsBlock(
-                num_heads=self.num_heads)(attn_weights)
+            weights = self.pre_softmax(weights)
 
-        attn_weights = nn.softmax(attn_weights)
+        weights = jax.nn.softmax(weights)
 
         if self.talking_heads:
-            attn_weights = TalkingHeadsBlock(
-                num_heads=self.num_heads)(attn_weights)
+            weights = self.post_softmax(weights)
 
-        attn_weights = nn.Dropout(rate=self.attn_dropout_rate)(
-            attn_weights, deterministic=not is_training)
+        weights = hk.dropout(hk.next_rng_key(), self.attn_drop_rate, weights)
 
-        attn_scores = jnp.einsum('... h q k, ... k h d -> ... q h d',
-                                 attn_weights, value)
+        scores = jnp.einsum('b h l k, b h k d -> b h l d', weights, v)
 
-        output = nn.DenseGeneral(features=out_ch,
-                                 axis=(-2, -1),
-                                 use_bias=self.use_bias,
-                                 dtype=self.dtype)(attn_scores)
+        scores = rearrange(scores, 'b h l d -> b l (h d)')
 
-        output = nn.Dropout(rate=self.out_dropout_rate)(
-            output, deterministic=not is_training)
+        output = self.to_out(scores)
+        output = hk.dropout(hk.next_rng_key(), self.out_drop_rate, output)
         return output
 
 
 class SelfAttentionBlock(AttentionBlock):
 
-    @nn.compact
     def __call__(self, inputs, is_training: bool):
         return super().__call__(inputs, inputs, is_training=is_training)

@@ -1,14 +1,16 @@
-from flax import linen as nn
+import haiku as hk
 from jax import numpy as jnp
 
 
-class TalkingHeadsBlock(nn.Module):
-    num_heads: int
+class TalkingHeadsBlock(hk.Module):
 
-    @nn.compact
+    def __init__(self, num_heads: int):
+        self.num_heads = num_heads
+
     def __call__(self, inputs):
         transform_shape = (self.num_heads, self.num_heads)
-        transform = self.param('talking_heads_transform',
-                               nn.initializers.orthogonal(), transform_shape)
+        transform = hk.get_parameter('pre_softmax',
+                                     hk.initializers.orthogonal(),
+                                     transform_shape)
         output = jnp.einsum('h i, b h ... -> b i ...', transform, inputs)
         return output

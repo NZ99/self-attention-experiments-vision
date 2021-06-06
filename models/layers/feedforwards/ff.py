@@ -1,8 +1,7 @@
-from functools import partial
 from typing import Callable, Optional
 
-import jax
 import haiku as hk
+import jax
 
 
 class FFBlock(hk.Module):

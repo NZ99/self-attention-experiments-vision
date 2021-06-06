@@ -1,9 +1,8 @@
-from functools import partial
 from typing import Callable, Optional
 
+import haiku as hk
 import jax
 from jax import numpy as jnp
-import haiku as hk
 from einops import rearrange
 
 

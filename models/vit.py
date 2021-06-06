@@ -1,26 +1,32 @@
 from typing import Tuple, Callable
 
-from flax import linen as nn
+import haiku as hk
+import jax
 from jax import numpy as jnp
 
 from models.layers import SelfAttentionBlock, FFBlock, AddAbsPosEmbed, PatchEmbedBlock
 
 
-class EncoderBlock(nn.Module):
-    num_heads: int
-    expand_ratio: float = 4
-    attn_dropout_rate: float = 0.
-    dropout_rate: float = 0.
-    activation_fn: Callable = nn.activation.gelu
-    dtype: jnp.dtype = jnp.float32
+class EncoderBlock(hk.Module):
 
-    @nn.compact
+    def __init__(self,
+                 num_heads: int,
+                 expand_ratio: float = 4,
+                 attn_drop_rate: float = 0.,
+                 out_drop_rate: float = 0.,
+                 activation_fn: Callable = jax.nn.gelu):
+        self.num_heads = num_heads
+        self.expand_ratio = expand_ratio
+        self.attn_drop_rate = attn_drop_rate
+        self.out_drop_rate = out_drop_rate
+        self.activation_fn = activation_fn
+
     def __call__(self, inputs, is_training: bool):
-        x = nn.LayerNorm(dtype=self.dtype)(inputs)
+        x = hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)(inputs)
         x = SelfAttentionBlock(num_heads=self.num_heads,
                                attn_dropout_rate=self.attn_dropout_rate,
-                               out_dropout_rate=self.dropout_rate,
-                               dtype=self.dtype)(x, is_training=is_training)
+                               out_dropout_rate=self.dropout_rate)(
+                                   x, is_training=is_training)
         x = x + inputs
 
         y = nn.LayerNorm(dtype=self.dtype)(x)

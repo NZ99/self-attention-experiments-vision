@@ -1,38 +1,35 @@
-from typing import Callable, Any
+from functools import partial
+from typing import Callable, Optional
 
-from flax import linen as nn
-
-from jax.lax import Precision
+import haiku as hk
+import jax
 from jax import numpy as jnp
 
-from functools import partial
 
-Dtype = Any
+class SqueezeExciteBlock(hk.Module):
 
-
-class SqueezeExciteBlock(nn.Module):
-
-    se_ratio: float = None
-    hidden_ch: int = None
-    activation_fn: Callable = nn.activation.gelu
-    dtype: jnp.dtype = jnp.float32
-
-    @nn.compact
-    def __call__(self, inputs):
-        in_ch = inputs.shape[-1]
-        if self.se_ratio is None:
-            if self.hidden_ch is None:
+    def __init__(self,
+                 in_ch: int,
+                 out_ch: Optional[int] = None,
+                 se_ratio: Optional[float] = None,
+                 hidden_ch: Optional[int] = None,
+                 activation_fn: Callable = jax.nn.gelu):
+        self.in_ch = in_ch
+        self.out_ch = out_ch if out_ch else in_ch
+        if se_ratio is None:
+            if hidden_ch is None:
                 raise ValueError('Must provide one of se_ratio or hidden_ch')
-            hidden_ch = self.hidden_ch
+            self.hidden_ch = hidden_ch
         else:
-            hidden_ch = max(1, int(in_ch * self.se_ratio))
+            self.hidden_ch = max(1, int(in_ch * se_ratio))
+        self.activation_fn = activation_fn
+        self.to_hidden = hk.Linear(self.hidden_ch, with_bias=True)
+        self.to_out = hk.Linear(self.out_ch, with_bias=True)
 
-        dense = partial(nn.Dense, use_bias=True, dtype=self.dtype)
-
-        x = jnp.mean(inputs, axis=(1, 2), dtype=self.dtype,
-                     keepdims=True)(inputs)
-        x = dense(features=hidden_ch)(x)
+    def __call__(self, inputs):
+        x = jnp.mean(inputs, axis=(1, 2), keepdims=True)(inputs)
+        x = self.to_hidden(x)
         x = self.activation_fn(x)
-        x = dense(features=in_ch)(x)
-        output = nn.sigmoid(x) * inputs
+        x = self.to_out(x)
+        output = jax.nn.sigmoid(x) * inputs
         return output

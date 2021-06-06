@@ -1,6 +1,7 @@
 from typing import Callable
 
-from flax import linen as nn
+import haiku as hk
+import jax
 import jax.numpy as jnp
 from einops import rearrange, repeat
 
@@ -20,14 +21,13 @@ def apply_rotary_pos_emb(x, sincos):
     return (x * cos) + (rotate_every_two(x) * sin)
 
 
-class FixedPositionalEmbedding(nn.Module):
+class FixedPositionalEmbedding(hk.Module):
 
-    @nn.compact
     def __call__(self, inputs, seq_dim=0):
         dim = inputs.shape[-1]
-        intervals = jnp.arange(start=0, stop=dim, step=2, dtype=self.dtype)
+        intervals = jnp.arange(start=0, stop=dim, step=2, dtype=inputs.dtype)
         inv_freq = 1. / (10e4**intervals / dim)
-        t = jnp.arange(inputs.shape[seq_dim], dtype=self.dtype)
+        t = jnp.arange(inputs.shape[seq_dim], dtype=inputs.dtype)
 
         freqs = jnp.einsum('i , j -> i j', t, inv_freq)
         emb = jnp.concatenate([freqs, freqs], axis=-1)
@@ -35,9 +35,7 @@ class FixedPositionalEmbedding(nn.Module):
 
 
 class RotaryPositionalEmbedding(FixedPositionalEmbedding):
-    dtype: jnp.dtype = jnp.float32
 
-    @nn.compact
     def __call__(self, inputs, seq_dim=0):
         sincos = super(RotaryPositionalEmbedding,
                        self).__call__(inputs, seq_dim)
@@ -45,13 +43,15 @@ class RotaryPositionalEmbedding(FixedPositionalEmbedding):
         return emb
 
 
-class AddAbsPosEmbed(nn.Module):
-    embed_init: Callable = nn.initializers.normal(stddev=0.02)
+class AddAbsPosEmbed(hk.Module):
 
-    @nn.compact
+    def __init__(self,
+                 embed_init: Callable = hk.initializers.normal(stddev=0.02)):
+        self.embed_init = embed_init
+
     def __call__(self, inputs):
         assert inputs.ndim == 3
         pos_emb_shape = (1, inputs.shape[1], inputs.shape[2])
-        pos_emb = self.param('pos_embed', self.embed_init, pos_emb_shape)
+        pos_emb = hk.get_parameter('pos_embed', pos_emb_shape, self.embed_init)
         output = inputs + pos_emb
         return output
