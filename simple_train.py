@@ -77,7 +77,7 @@ def train_step(train_state, batch):
         logits = train_state.apply_fn(params, images, is_training=True)
         y = one_hot(batch['labels'])
         logits = logits.astype(jnp.float32)
-        loss = optax.softmax_cross_entropy(logits, y)
+        loss = jnp.mean(optax.softmax_cross_entropy(logits, y))
         scaled_loss = loss / jax.device_count()
         return scaled_loss, logits
 
