@@ -88,13 +88,12 @@ def train_step(train_state, batch):
     top_k_acc = utils.topk_correct(logits, batch['labels'], prefix='train_')
     top_k_acc = jax.tree_map(jnp.mean, top_k_acc)
     new_train_state = train_state.apply_gradients(grads=grads)
-
-    if jax.process_index() == 0:
+    """if jax.process_index() == 0:
         wandb.log(
             {
                 'train/loss': loss.astype(float),
                 'train/top-1-acc': top_k_acc['train_top_1_acc']
-            }, train_state.step)
+            }, train_state.step)"""
 
     return new_train_state
 
@@ -118,12 +117,12 @@ def save_checkpoint(train_state, dir):
 
 
 def main():
-    if jax.process_index() == 0:
+    """if jax.process_index() == 0:
         wandb.init(project='self-attention-experiments',
                    config={
                        'dataset': 'ImageNet1K',
                        'model': 'ViT',
-                   })
+                   })"""
 
     checkpoint_dir = '/home/connor/checkpoints'
     images_per_epoch = 1281167
@@ -161,9 +160,10 @@ def main():
                     sum_loss = jax.tree_multimap(jnp.add, sum_loss, loss)
 
             mean_loss = jax.tree_map(lambda x: x / num_samples, sum_loss)
-            if jax.process_index() == 0:
+            """if jax.process_index() == 0:
                 wandb.log({'eval/loss': mean_loss.astype(float)},
-                          train_state.step)
+                          train_state.step)"""
+            print('mean loss = ', mean_loss)
 
         if (step % steps_total) == 0 and step:
             exit()
