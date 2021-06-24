@@ -92,7 +92,7 @@ def train_step(train_state, batch):
     if jax.process_index() == 0:
         wandb.log(
             {
-                'train/loss': float(loss),
+                'train/loss': loss.astype(float),
                 'train/top-1-acc': top_k_acc['train_top_1_acc']
             }, train_state.step)
 
@@ -162,7 +162,8 @@ def main():
 
             mean_loss = jax.tree_map(lambda x: x / num_samples, sum_loss)
             if jax.process_index() == 0:
-                wandb.log({'eval/loss': float(mean_loss)}, train_state.step)
+                wandb.log({'eval/loss': mean_loss.astype(float)},
+                          train_state.step)
 
         if (step % steps_total) == 0 and step:
             exit()
