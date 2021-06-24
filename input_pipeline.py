@@ -64,7 +64,7 @@ class Split(enum.Enum):
 
 def load(
     split: Split,
-    data_dir: str,
+    data_dir: str = 'gs://neo-datasets/vision_datasets/',
     *,
     is_training: bool,
     batch_dims: Sequence[int],
@@ -120,7 +120,7 @@ def load(
                                                to=end,
                                                unit='abs')
 
-        ds = tfds.load('imagenet2012:5.*.*',
+        ds = tfds.load('imagenet2012:5.1.0',
                        split=tfds_split,
                        data_dir=data_dir,
                        decoders={'image': tfds.decode.SkipDecoding()})

@@ -1,0 +1,26 @@
+name: vit_variants
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - absl-py=0.12.0
+  - click=7.1.2
+  - numpy-base=1.20.1
+  - opt_einsum=3.1.0
+  - pip=21.0.1
+  - python=3.8.8
+  - tensorflow=2.4.1
+  - tensorflow-base=2.4.1
+  - typing-extensions=3.7.4.3
+  - wandb>=0.10
+  - einops>=0.3
+  - pip:
+    - -e git+https://github.com/google/flax.git#egg=flax
+    - jaxlib>=0.1.66
+    - jax>=0.2.13
+    - numpy>=1.19.5
+    - opt-einsum>=3.3.0
+    - click-option-group>=0.5.2
+    - -e git+https://github.com/google/CommonLoopUtils.git#egg=clu
+    - -e git+https://github.com/deepmind/optax.git#egg=optax
+    - tensorflow-datasets>=4.2.0
