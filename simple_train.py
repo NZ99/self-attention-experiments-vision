@@ -72,7 +72,7 @@ def build_eval_input():
 def train_step(train_state, batch):
 
     def loss_fn(params):
-        images = rearrange(batch['images'], 'B W C N -> B H W C')
+        images = rearrange(batch['images'], 'H W C B -> B H W C')
         images = images.astype(jnp.bfloat16)
         logits = train_state.apply_fn(params, images, is_training=True)
         y = one_hot(batch['labels'])
