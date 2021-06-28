@@ -35,35 +35,8 @@ STDDEV_RGB = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-class Split(enum.Enum):
-    """Imagenet dataset split."""
-    TRAIN = 1
-    TRAIN_AND_VALID = 2
-    VALID = 3
-    TEST = 4
-
-    @classmethod
-    def from_string(cls, name: Text) -> 'Split':
-        return {
-            'TRAIN': Split.TRAIN,
-            'TRAIN_AND_VALID': Split.TRAIN_AND_VALID,
-            'VALID': Split.VALID,
-            'VALIDATION': Split.VALID,
-            'TEST': Split.TEST
-        }[name.upper()]
-
-    @property
-    def num_examples(self):
-        return {
-            Split.TRAIN_AND_VALID: 1281167,
-            Split.TRAIN: 1271167,
-            Split.VALID: 10000,
-            Split.TEST: 50000
-        }[self]
-
-
 def load(
-    split: Split,
+    split: tfds.Split,
     data_dir: str = 'gs://neo-datasets/vision_datasets/',
     *,
     is_training: bool,
@@ -99,34 +72,23 @@ def load(
   Yields:
     A TFDS numpy iterator.
   """
-    start, end = _shard(split, jax.host_id(), jax.host_count())
-
-    if fake_data:
-        print('Using fake data!')
-        images = np.zeros(tuple(batch_dims) + image_size + (3,), dtype=dtype)
-        labels = np.zeros(tuple(batch_dims), dtype=np.int32)
-        if transpose:
-            axes = tuple(range(images.ndim))
-            axes = axes[:-4] + axes[-3:] + (axes[-4],)  # NHWC -> HWCN
-            images = np.transpose(images, axes)
-        yield from it.repeat({'images': images, 'labels': labels}, end - start)
-        return
 
     total_batch_size = np.prod(batch_dims)
 
-    if name.lower() == 'imagenet':
-        tfds_split = tfds.core.ReadInstruction(_to_tfds_split(split),
-                                               from_=start,
-                                               to=end,
-                                               unit='abs')
-
+    if name.lower() == 'imagenet_1k':
         ds = tfds.load('imagenet2012:5.1.0',
-                       split=tfds_split,
+                       split=split,
                        data_dir=data_dir,
+                       decoders={'image': tfds.decode.SkipDecoding()})
+    elif name.lower() == 'imagenet_1k_v2':
+        assert split == tfds.Split.TEST
+        ds = tfds.load('imagenet_v2:3.0.0',
+                       split=split,
+                       data_dir="/media/f/imagenet_v2",
                        decoders={'image': tfds.decode.SkipDecoding()})
     else:
         raise ValueError(
-            'Only imagenet is presently supported for this dataset.')
+            'Only imagenet_1k is presently supported for this dataset.')
 
     options = tf.data.Options()
     options.experimental_threading.private_threadpool_size = 48
@@ -147,11 +109,6 @@ def load(
             ds = ds.cache()
         ds = ds.repeat()
         ds = ds.shuffle(buffer_size=10 * total_batch_size, seed=None)
-
-    else:
-        if split.num_examples % total_batch_size != 0:
-            raise ValueError(
-                f'Test/valid must be divisible by {total_batch_size}')
 
     def augment_normalize(batch):
         """Optionally augment, then normalize an image."""
@@ -202,10 +159,10 @@ def load(
             # Deal with vectorized MixUp + CutMix ops
             if augment_name is not None:
                 if 'mixup' in augment_name or 'cutmix' in augment_name:
-                    ds = ds.batch(batch_size * 2)
+                    ds = ds.batch(batch_size * 2, drop_remainder=True)
                 else:
                     ds = ds.map(augment_normalize, num_parallel_calls=AUTOTUNE)
-                    ds = ds.batch(batch_size)
+                    ds = ds.batch(batch_size, drop_remainder=True)
                 # Apply mixup, cutmix, or mixup + cutmix
                 if 'mixup' in augment_name and 'cutmix' not in augment_name:
                     logging.info('Applying MixUp!')
@@ -221,9 +178,9 @@ def load(
                     ('mixup' in augment_name or 'cutmix' in augment_name)):
                     ds = ds.unbatch().map(augment_normalize,
                                           num_parallel_calls=AUTOTUNE)
-                    ds = ds.batch(batch_size)
+                    ds = ds.batch(batch_size, drop_remainder=True)
             else:
-                ds = ds.batch(batch_size)
+                ds = ds.batch(batch_size, drop_remainder=True)
             # Transpose and cast as needbe
             if transpose:
                 ds = ds.map(transpose_fn)  # NHWC -> HWCN
@@ -232,7 +189,10 @@ def load(
             # this causes stalls while TF and JAX battle for the accelerator.
             ds = ds.map(cast_fn)
         else:
-            ds = ds.batch(batch_size)
+            ds = ds.batch(batch_size, drop_remainder=True)
+
+    if not is_training:
+        ds = ds.repeat()
 
     ds = ds.prefetch(AUTOTUNE)
     ds = tfds.as_numpy(ds)
@@ -357,29 +317,6 @@ def _to_tf_dtype(jax_dtype: jnp.dtype) -> tf.DType:
         return tf.bfloat16
     else:
         return tf.dtypes.as_dtype(jax_dtype)
-
-
-def _to_tfds_split(split: Split) -> tfds.Split:
-    """Returns the TFDS split appropriately sharded."""
-    if split in (Split.TRAIN, Split.TRAIN_AND_VALID, Split.VALID):
-        return tfds.Split.TRAIN
-    else:
-        assert split == Split.TEST
-        return tfds.Split.VALIDATION
-
-
-def _shard(split: Split, shard_index: int, num_shards: int) -> Tuple[int, int]:
-    """Returns [start, end) for the given shard index."""
-    assert shard_index < num_shards
-    arange = np.arange(split.num_examples)
-    shard_range = np.array_split(arange, num_shards)[shard_index]
-    start, end = shard_range[0], (shard_range[-1] + 1)
-    if split == Split.TRAIN:
-        # Note that our TRAIN=TFDS_TRAIN[10000:] and VALID=TFDS_TRAIN[:10000].
-        offset = Split.VALID.num_examples
-        start += offset
-        end += offset
-    return start, end
 
 
 def _preprocess_image(image_bytes: tf.Tensor,
